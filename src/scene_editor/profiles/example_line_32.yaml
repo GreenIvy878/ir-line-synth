@@ -1,0 +1,18 @@
+# An example sensor profile not tied to a real device (docs/sensor_model.md, section 8):
+# a line of 32 channels on 4 boards with a 10-bit ADC, described by nominal values and the
+# spread between channels instead of measurements. The values are illustrative: of the order
+# of the reference line, rounded, for a sensor that reaches its full scale near 10 mm.
+profile: 1
+name: example_line_32
+channels: 32
+boards: 4
+adc_max: 1023
+response:
+  law: power_offset
+  valid_mm: [10.0, 150.0]
+  nominal: {gain: 30000.0, power: 1.5, shift_mm: 4.0, offset: 20.0}
+  spread: {gain_log_sd: 0.2, power_sd: 0.1, offset_sd: 8.0, seed: 7}
+noise:
+  variance: {a: 0.05, k: 0.0001}
+correction: none
+frames: {pool: 1, length: 64, normalize: none}

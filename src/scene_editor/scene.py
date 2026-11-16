@@ -1,7 +1,7 @@
 """Pixel operations and validation of scenes: frames with objects added to them.
 
 Coordinates here are image x/y in pixels, in the orientation of the stored image; a
-scene has the size of its background frame (see sensor.SensorProfile).
+scene has the size of its background frame (see sensor.FrameGeometry).
 Scenes always render again from their background and immutable source crops.
 """
 

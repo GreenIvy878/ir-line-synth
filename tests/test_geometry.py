@@ -10,8 +10,8 @@ import unittest
 import numpy as np
 from PIL import Image
 
-from scene_editor.dataset import load_data_description, open_split, read_yolo_boxes, scale_boxes, sensor_profile
-from scene_editor.sensor import SensorProfile
+from scene_editor.dataset import load_data_description, open_split, read_yolo_boxes, scale_boxes, frame_geometry
+from scene_editor.sensor import FrameGeometry
 from scene_editor.web.views import EditorViews
 from test_morph import draw_egg
 
@@ -60,7 +60,7 @@ class LineGeometryTests(unittest.TestCase):
     def tearDown(self):
         self.directory.cleanup()
 
-    def test_every_tool_follows_the_profile_of_the_dataset(self):
+    def test_every_tool_follows_the_geometry_of_the_dataset(self):
         for axis in ("x", "y"):
             with self.subTest(axis=axis):
                 self.check_axis(axis)
@@ -69,9 +69,9 @@ class LineGeometryTests(unittest.TestCase):
         data = write_line_dataset(self.root / axis / "raw", axis)
         out = self.root / axis / "out"
         views = EditorViews(data)
-        profile = SensorProfile(CHANNELS, LENGTH, axis)
-        shape = profile.frame_shape
-        self.assertEqual(views.workspace.profile, profile)
+        geometry = FrameGeometry(CHANNELS, LENGTH, axis)
+        shape = geometry.frame_shape
+        self.assertEqual(views.workspace.geometry, geometry)
         sensor = views.get("/api/synthetic/sensor", {})
         self.assertEqual((sensor["frame_height"], sensor["frame_width"]), shape)
 
@@ -98,7 +98,7 @@ class LineGeometryTests(unittest.TestCase):
                                    chosen["preview"]["boxes_pixels_xyxy"], atol=1e-4)
         # The output reads back as a dataset of the same line.
         output = load_data_description(out)
-        self.assertEqual(sensor_profile(output), profile)
+        self.assertEqual(frame_geometry(output), geometry)
         self.assertEqual(len(open_split(output, "train")), 1)
 
         # New objects from the real ones of this line.

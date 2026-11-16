@@ -8,8 +8,8 @@ import numpy as np
 from PIL import Image
 import yaml
 
-from scene_editor.dataset import load_data_description, open_split, read_yolo_boxes, sensor_profile
-from scene_editor.sensor import SensorProfile
+from scene_editor.dataset import load_data_description, open_split, read_yolo_boxes, frame_geometry
+from scene_editor.sensor import FrameGeometry
 
 
 def write_frames(split_root: Path, labels="0 0.1 0.3 0.05 0.1\n", size=(40, 40)):
@@ -97,35 +97,35 @@ class FrameSetTests(unittest.TestCase):
                 with self.assertRaises((ValueError, FileNotFoundError)):
                     open_split({"train": str(root), "sensor_axis": "x", "scale": 255.0, "offset": 0.0}, "train")
 
-    def test_the_first_frame_sets_the_profile_on_either_axis(self):
+    def test_the_first_frame_sets_the_geometry_on_either_axis(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder) / "train"
             write_frames(root, size=(24, 64))  # 24 columns, 64 rows
             data = {"train": str(root), "scale": 255.0, "offset": 0.0}
-            self.assertEqual(sensor_profile({**data, "sensor_axis": "x"}), SensorProfile(24, 64, "x"))
-            self.assertEqual(sensor_profile({**data, "sensor_axis": "y"}), SensorProfile(64, 24, "y"))
+            self.assertEqual(frame_geometry({**data, "sensor_axis": "x"}), FrameGeometry(24, 64, "x"))
+            self.assertEqual(frame_geometry({**data, "sensor_axis": "y"}), FrameGeometry(64, 24, "y"))
             frames = open_split({**data, "sensor_axis": "x"}, "train")
             self.assertEqual(frames.shape, (64, 24))
             np.testing.assert_allclose(frames.pixel_boxes(0), [[1.8, 16.0, 3.0, 22.4]], atol=1e-5)
 
-    def test_frames_must_match_the_described_profile(self):
+    def test_frames_must_match_the_described_geometry(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder) / "train"
             write_frames(root, size=(24, 64))
             data = {"train": str(root), "scale": 255.0, "offset": 0.0, "sensor_axis": "x"}
-            self.assertEqual(sensor_profile({**data, "channels": 24}), SensorProfile(24, 64, "x"))
+            self.assertEqual(frame_geometry({**data, "channels": 24}), FrameGeometry(24, 64, "x"))
             with self.assertRaisesRegex(ValueError, "24 channels on x, data.channels says 40"):
-                sensor_profile({**data, "channels": 40})
+                frame_geometry({**data, "channels": 40})
             with self.assertRaisesRegex(ValueError, "40 x 40 pixels"):
-                open_split(data, "train", SensorProfile(40, 40, "x"))
-            # A described profile needs no frame at all.
-            self.assertEqual(sensor_profile({"channels": 16, "frame_length": 8, "sensor_axis": "y"}),
-                             SensorProfile(16, 8, "y"))
-            self.assertEqual(SensorProfile(16, 8, "y").frame_shape, (16, 8))
+                open_split(data, "train", FrameGeometry(40, 40, "x"))
+            # A described geometry needs no frame at all.
+            self.assertEqual(frame_geometry({"channels": 16, "frame_length": 8, "sensor_axis": "y"}),
+                             FrameGeometry(16, 8, "y"))
+            self.assertEqual(FrameGeometry(16, 8, "y").frame_shape, (16, 8))
             for bad in (dict(channels=0, frame_length=8), dict(channels=16, frame_length=True),
                         dict(channels=16, frame_length=8, sensor_axis="z")):
                 with self.subTest(bad=bad), self.assertRaises(ValueError):
-                    SensorProfile(**bad)
+                    FrameGeometry(**bad)
 
     def test_label_errors_name_file_and_line(self):
         with tempfile.TemporaryDirectory() as folder:

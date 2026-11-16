@@ -16,7 +16,8 @@ import numbers
 from pathlib import Path
 
 
-CORE_MODULES = ("sensor", "dataset", "scene", "morph", "background", "generator", "tape", "store", "workspace")
+CORE_MODULES = ("sensor", "dataset", "scene", "morph", "background", "generator", "tape", "store", "workspace",
+                "sensor_model", "framing", "calibration", "sensor_report")
 
 # Where a value comes from.
 MEASURED = "измерено"      # computed from the real data; the source is named
@@ -141,6 +142,36 @@ REGISTRY = (
     entry("tape", "MAX_OBJECTS", "объекты", BOUND, "Наибольшее число объектов на ленте."),
     entry("tape", "ATTEMPTS", "попытки", BOUND, "Попыток разместить один объект на ленте; иначе он пропускается."),
     entry("tape", "BUDGET", "объекты", BOUND, "Подготовленных объектов на всю ленту."),
+
+    # --- sensor model (docs/sensor_model.md) --------------------------------------------------
+    entry("sensor_model", "PROFILE_SCHEMA", "—", DEFINITION, "Версия формата файла профиля датчика."),
+    entry("sensor_model", "MAX_ADC", "коды", BOUND, "Наибольший код АЦП в профиле (24 бита)."),
+    entry("sensor_model", "POWER_RANGE", "—", BOUND,
+          "Допустимый показатель спада отклика $p$; на эталонной линейке подобраны значения 0,91–2,0."),
+    entry("sensor_model", "SHIFT_RANGE", "мм", BOUND,
+          "Допустимый сдвиг расстояния $d_0$; на эталонной линейке −4,2…8,1 мм."),
+    entry("framing", "FRAME_LEVELS", "уровни", DEFINITION,
+          "Верх 8-битной шкалы кадра при нормировке тайла: $\\lfloor (x-\\min)/(\\max-\\min) \\cdot 255 \\rfloor$."),
+    entry("calibration", "FIT_POWER", "—", BOUND, "Диапазон показателя $p$ при подборе отклика."),
+    entry("calibration", "FIT_SHIFT", "мм", BOUND,
+          "Диапазон сдвига $d_0$ при подборе; нижняя граница ещё ограничена ближайшим расстоянием замеров."),
+    entry("calibration", "FIT_STEPS", "—, мм", TUNED,
+          "Шаги трёх проходов сетки (показатель, сдвиг); каждый проход сужает поиск вокруг лучшей точки. "
+          "Совпадает с подбором методом Левенберга — Марквардта (2,04 / 3,24 %)."),
+    entry("calibration", "NOISE_SD_MAX", "коды", BOUND, "Верх поиска СКО шума до округления в узле."),
+    entry("calibration", "BELT_MARGIN", "коды", TUNED,
+          "Опрос — пустая лента, если все каналы в пределах этого от уровня записи; объект поднимает сигнал "
+          "на десятки и сотни кодов, шум ленты — около 4 кодов."),
+    entry("calibration", "BELT_MIN_RUN", "опросы", TUNED, "Самый короткий учитываемый отрезок пустой ленты."),
+    entry("calibration", "RHYTHM_LAGS", "опросы", TUNED,
+          "Сдвиги автокорреляции шума ленты при подборе; около четырёх периодов эталонной установки."),
+    entry("calibration", "RHYTHM_PERIODS", "опросы", BOUND, "Диапазон искомого периода шума ленты."),
+    entry("calibration", "RHYTHM_MIN_SHARE", "доля", TUNED,
+          "Периодическая составляющая с меньшей долей дисперсии не включается в профиль."),
+    entry("sensor_report", "NOISE_REPLICATES", "серии", BOUND, "Смоделированных серий в каждом узле при проверке П2."),
+    entry("sensor_report", "REPORT_SEED", "—", DEFINITION, "Зерно моделирования в отчёте проверки, чтобы отчёт повторялся."),
+    entry("sensor_report", "LAGS", "опросы", DEFINITION,
+          "Сдвиги, на которых отчёт сравнивает автокорреляцию шума ленты с моделью (П4)."),
 )
 
 
@@ -180,6 +211,8 @@ def unregistered():
 def show(value):
     if isinstance(value, dict):
         return ", ".join(f"{key} {show(item)}" for key, item in value.items())
+    if isinstance(value, (tuple, list)) and any(isinstance(item, (tuple, list)) for item in value):
+        return ", ".join("(" + "; ".join(show(part) for part in item) + ")" for item in value)
     if isinstance(value, (tuple, list)):
         return "…".join(show(item) for item in value) if len(value) == 2 else ", ".join(show(item) for item in value)
     if isinstance(value, float):

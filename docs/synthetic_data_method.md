@@ -439,6 +439,8 @@ $$
 | [recipe.py](../src/scene_editor/recipe.py) | Рецепты: запуск генерации по файлу YAML, запись о запуске ([описание](recipes.md)) |
 | [verify.py](../src/scene_editor/verify.py) | Проверка, что сохранённые примеры заново строятся из своих описаний |
 | [constants.py](../src/scene_editor/constants.py) | Реестр фиксированных чисел: значение, единица, происхождение, смысл ([таблица](constants.md)) |
+| [sensor_model.py](../src/scene_editor/sensor_model.py), [framing.py](../src/scene_editor/framing.py) | Модель линейки ИК-датчиков: отклик, шум, АЦП, коррекция, формирование кадра ([описание](sensor_model.md)) |
+| [calibration.py](../src/scene_editor/calibration.py), [sensor_report.py](../src/scene_editor/sensor_report.py) | Подбор профиля датчика по замерам и его проверка ([результаты](sensor_validation.md)) |
 | [web/](../src/scene_editor/web/) | Локальный JSON API и веб-интерфейс (только localhost) |
 
 Зависимости: Python ≥ 3.12, NumPy, Pillow, PyYAML.

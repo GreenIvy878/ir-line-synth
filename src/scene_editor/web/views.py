@@ -16,7 +16,7 @@ class EditorViews:
 
     def get(self, path, query):
         if path == "/api/synthetic/sensor":
-            return self.workspace.profile.payload()
+            return self.workspace.geometry.payload()
         if path == "/api/synthetic/catalog":
             catalog = {}
             for split in self.workspace.source_splits():
@@ -88,7 +88,7 @@ class EditorViews:
                         box=prepared.label_box().tolist())
         if path == "/api/synthetic/tape-generate":
             result = generate_tape(body.get("pool"), body.get("rules", {}), load_source, self.workspace.prepare_tape_object,
-                                   self.workspace.profile.channels,
+                                   self.workspace.geometry.channels,
                                    self.workspace.is_clipped)
             result["preview"] = self.workspace.render_tape(result["tape"], load_source).payload()
             return result

@@ -68,7 +68,7 @@ class RecipeTests(unittest.TestCase):
         record = json.loads(Path(first["record"]).read_text(encoding="utf-8"))
         self.assertEqual(record["program"]["version"], __version__)
         self.assertEqual(record["recipe_sha256"], load_recipe(path)[2])
-        self.assertEqual(record["profile"]["channels"], 40)
+        self.assertEqual(record["geometry"]["channels"], 40)
         self.assertTrue(Path(first["record"].replace(".json", ".recipe.yaml")).is_file())
         # Every saved file names the program that wrote it.
         provenance = next((self.root / "first" / "train" / "provenance").glob("*.json"))

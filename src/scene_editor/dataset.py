@@ -17,7 +17,7 @@ import numpy as np
 from PIL import Image
 import yaml
 
-from .sensor import MAX_CHANNELS, MAX_FRAME_LENGTH, SensorProfile
+from .sensor import MAX_CHANNELS, MAX_FRAME_LENGTH, FrameGeometry
 
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".tif", ".tiff"}
@@ -95,8 +95,8 @@ def frame_size(path: Path) -> tuple[int, int]:
         return image.height, image.width
 
 
-def sensor_profile(data: dict) -> SensorProfile:
-    """The profile of the frames of a dataset: from `channels` and `frame_length` of the
+def frame_geometry(data: dict) -> FrameGeometry:
+    """The geometry of the frames of a dataset: from `channels` and `frame_length` of the
     description, the rest taken from its first frame (of train, val or test)."""
     axis = data.get("sensor_axis", "x")
     channels, length = data.get("channels"), data.get("frame_length")
@@ -109,23 +109,23 @@ def sensor_profile(data: dict) -> SensorProfile:
             if first is not None:
                 break
         if first is None:
-            raise ValueError("No frames to learn the sensor profile from; give data.channels and data.frame_length")
-        found = SensorProfile.from_frame(frame_size(first), axis)
+            raise ValueError("No frames to learn the frame geometry from; give data.channels and data.frame_length")
+        found = FrameGeometry.from_frame(frame_size(first), axis)
         if channels is not None and channels != found.channels:
             raise ValueError(f"{first}: {found.channels} channels on {axis}, data.channels says {channels}")
         if length is not None and length != found.frame_length:
             raise ValueError(f"{first}: frame of {found.frame_length} polls, data.frame_length says {length}")
         return found
-    return SensorProfile(channels, length, axis)
+    return FrameGeometry(channels, length, axis)
 
 
-def validate_image(path: Path, profile: SensorProfile) -> None:
+def validate_image(path: Path, geometry: FrameGeometry) -> None:
     with Image.open(path) as image:
-        if (image.height, image.width) != profile.frame_shape or image.mode not in GRAYSCALE_MODES:
-            rows, columns = profile.frame_shape
+        if (image.height, image.width) != geometry.frame_shape or image.mode not in GRAYSCALE_MODES:
+            rows, columns = geometry.frame_shape
             raise ValueError(f"{path}: expected a grayscale frame of {columns} x {rows} pixels "
-                             f"({profile.channels} channels on {profile.sensor_axis}, "
-                             f"{profile.frame_length} polls)")
+                             f"({geometry.channels} channels on {geometry.sensor_axis}, "
+                             f"{geometry.frame_length} polls)")
 
 
 def scale_boxes(boxes, shape) -> np.ndarray:
@@ -183,10 +183,10 @@ def orphan_labels(root: Path, image_paths) -> list[Path]:
 class FrameSet:
     """The frames of one split folder and their boxes, checked once when the folder is opened."""
 
-    def __init__(self, root: str | Path, profile: SensorProfile, scale: float = 255.0, offset: float = 0.0):
+    def __init__(self, root: str | Path, geometry: FrameGeometry, scale: float = 255.0, offset: float = 0.0):
         self.root = Path(root)
-        self.profile = profile
-        self.sensor_axis = profile.sensor_axis
+        self.geometry = geometry
+        self.sensor_axis = geometry.sensor_axis
         self.scale = float(scale)
         self.offset = float(offset)
         self.paths = find_images(self.root / "images")
@@ -195,7 +195,7 @@ class FrameSet:
     @property
     def shape(self):
         """(rows, columns) of every frame, in its stored orientation."""
-        return self.profile.frame_shape
+        return self.geometry.frame_shape
 
     def pixel_boxes(self, index: int) -> np.ndarray:
         """The boxes of frame `index` in its pixels (xyxy, float64)."""
@@ -204,7 +204,7 @@ class FrameSet:
     def load_annotations(self) -> list[np.ndarray]:
         boxes = []
         for path in self.paths:
-            validate_image(path, self.profile)
+            validate_image(path, self.geometry)
             label_path = self.root / "labels" / f"{path.stem}.txt"
             if not label_path.is_file():
                 raise FileNotFoundError(f"Missing YOLO annotation: {label_path}")
@@ -229,6 +229,6 @@ class FrameSet:
         return pixels
 
 
-def open_split(data: dict, split: str, profile: SensorProfile | None = None) -> FrameSet:
-    """The frames of `split`; every one must fit `profile` (by default the dataset's own)."""
-    return FrameSet(data[split], profile or sensor_profile(data), data["scale"], data["offset"])
+def open_split(data: dict, split: str, geometry: FrameGeometry | None = None) -> FrameSet:
+    """The frames of `split`; every one must fit `geometry` (by default the dataset's own)."""
+    return FrameSet(data[split], geometry or frame_geometry(data), data["scale"], data["offset"])

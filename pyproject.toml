@@ -23,4 +23,4 @@ version = {attr = "scene_editor.__version__"}
 where = ["src"]
 
 [tool.setuptools.package-data]
-scene_editor = ["web/static/*.html", "web/static/*.js", "web/static/*.css"]
+scene_editor = ["web/static/*.html", "web/static/*.js", "web/static/*.css", "profiles/*.yaml"]

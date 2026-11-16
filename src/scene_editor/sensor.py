@@ -14,13 +14,13 @@ from dataclasses import dataclass
 
 
 SENSOR_AXES = ("x", "y")
-# Sanity bounds of a profile, far above any line in use (the reference line has 40 channels).
+# Sanity bounds of a frame geometry, far above any line in use (the reference line has 40 channels).
 MAX_CHANNELS = 1024
 MAX_FRAME_LENGTH = 4096
 
 
 @dataclass(frozen=True)
-class SensorProfile:
+class FrameGeometry:
     """Geometry of the sensor line and of its frames."""
 
     channels: int        # sensors in the line
@@ -49,7 +49,7 @@ class SensorProfile:
 
     @classmethod
     def from_frame(cls, shape, sensor_axis):
-        """The profile of frames of `shape` (rows, columns) with the channels on `sensor_axis`."""
+        """The geometry of frames of `shape` (rows, columns) with the channels on `sensor_axis`."""
         rows, columns = shape
         if sensor_axis == "x":
             return cls(int(columns), int(rows), sensor_axis)

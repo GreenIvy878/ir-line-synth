@@ -121,6 +121,8 @@ scene-editor serve --data DATASET [--port 8009]      the editor in the browser
 scene-editor generate RECIPE [--output DIR] [--dry-run]
 scene-editor verify OUTPUT --data DATASET            saved examples render again exactly
 scene-editor constants [--output FILE]               the registry of fixed numbers
+scene-editor fit-sensor --calibration PATH ... --output PROFILE     a sensor profile from measurements
+scene-editor sensor-report --profile PROFILE --calibration PATH ... the check of a profile
 scene-editor --version
 ```
 
@@ -136,12 +138,29 @@ scene-editor --version
   tuned, external, bound, definition) and meaning of every fixed number of the
   program. The tests fail when a numeric constant has no entry or the document is
   out of date.
+- **fit-sensor** fits a sensor profile (below) to calibration captures and, optionally,
+  to recordings of the bare belt of a working line; **sensor-report** checks a profile
+  against the same measurements and writes the result as Markdown.
+
+## Sensor model
+
+A line of reflective IR distance sensors is described by a *sensor profile*, a YAML
+file: the response of every channel to distance and reflectance
+(`offset + reflectance * gain * (d + shift)^-power`), the noise of the sensor, the range
+of its ADC, an optional correction table, how frames are formed from polls and,
+optionally, the bare belt of a working installation (channel levels and a noise with a
+periodic part). Two profiles are shipped: `reference_line_40`, fitted to the
+calibration captures and recordings of the reference line, and `example_line_32`, a
+line given by nominal values with a spread between channels. The model, the data of the
+reference line and what the model leaves out are in `docs/sensor_model.md`; the check
+(response on held-out distances, noise, the 1070 frames of the dataset made again from
+the recordings pixel for pixel, the belt noise) in `docs/sensor_validation.md`.
 
 ## Sensor line
 
 A line of reflective IR distance sensors is polled at a fixed rate while objects
 pass under it; successive polls stacked together give a frame: one axis holds the
-channels, the other the polls (time). The *sensor profile* of a dataset is the
+channels, the other the polls (time). The *frame geometry* of a dataset is the
 number of channels, the number of polls in a frame and the image axis of the
 channels. Scenes have the size of the frames, tapes have all the channels, and an
 output holds frames of one size.
@@ -218,6 +237,10 @@ src/scene_editor/
   recipe.py       recipes and their runs
   verify.py       saved examples against their descriptions
   constants.py    the registry of fixed numbers
+  sensor_model.py the sensor model and its profile files; profiles/ the shipped profiles
+  framing.py      frames from polls: pooling, tiles, normalization
+  calibration.py  a profile fitted to calibration captures and belt recordings
+  sensor_report.py  the check of a profile against measurements
   __main__.py     the command line
   web/            the local web interface: server, JSON API, page
 ```

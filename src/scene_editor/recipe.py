@@ -190,7 +190,7 @@ def run(path, output=None, dry_run=False, report=print):
     pool = object_pool(workspace, recipe, notes)
     report(f"Pool: {len(pool)} objects")
     record = dict(program=dict(name=PROGRAM, version=__version__), recipe=recipe, recipe_sha256=digest,
-                  recipe_file=str(Path(path).resolve()), data=str(data_path), profile=workspace.profile.payload(),
+                  recipe_file=str(Path(path).resolve()), data=str(data_path), geometry=workspace.geometry.payload(),
                   output=str(output), split=split, pool=len(pool), notes=notes, scenes=None, tapes=None,
                   started=datetime.now(timezone.utc).isoformat(timespec="seconds"))
     load = workspace.source_loader()
@@ -225,7 +225,7 @@ def run(path, output=None, dry_run=False, report=print):
         made = []
         for index in range(tapes["count"]):
             rules = dict(rules_of(tapes, "tapes"), split=split, seed=step_seed(seed, "tapes", index))
-            result = generate_tape(pool, rules, load, workspace.prepare_tape_object, workspace.profile.channels,
+            result = generate_tape(pool, rules, load, workspace.prepare_tape_object, workspace.geometry.channels,
                                    workspace.is_clipped)
             rendered = workspace.render_tape(result["tape"], load)
             row = dict(requested=result["requested"], placed=result["placed"], rejected=result["rejected"],

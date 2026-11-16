@@ -1,0 +1,82 @@
+# Sensor profile fitted by scene-editor 0.2.0 (scene-editor fit-sensor); see docs/sensor_model.md.
+profile: 1
+name: reference_line_40
+channels: 40
+boards: 5
+adc_max: 4095
+response:
+  law: power_offset
+  valid_mm: [5.0, 100.0]
+  channels:
+  - {gain: 59703.3, power: 1.5932, shift_mm: 1.5825, offset: 14.3174}
+  - {gain: 95036.0, power: 1.7256, shift_mm: 3.4675, offset: 11.0349}
+  - {gain: 97028.2, power: 1.754, shift_mm: 4.2825, offset: 32.7439}
+  - {gain: 144837.0, power: 1.8186, shift_mm: 5.4575, offset: 14.0171}
+  - {gain: 5495.42, power: 0.9132, shift_mm: -4.2, offset: -11.071}
+  - {gain: 19743.9, power: 1.3062, shift_mm: -0.715, offset: 23.1978}
+  - {gain: 7824.43, power: 1.0408, shift_mm: -3.22, offset: 3.74759}
+  - {gain: 21992.0, power: 1.3126, shift_mm: -0.45, offset: 19.1384}
+  - {gain: 143339.0, power: 1.837, shift_mm: 5.7975, offset: 34.4744}
+  - {gain: 45635.7, power: 1.533, shift_mm: 2.94, offset: 23.323}
+  - {gain: 93357.5, power: 1.7246, shift_mm: 4.81, offset: 36.5341}
+  - {gain: 19438.1, power: 1.301, shift_mm: -0.6125, offset: 44.9505}
+  - {gain: 73140.1, power: 1.6522, shift_mm: 4.1175, offset: 39.6933}
+  - {gain: 10714.1, power: 1.09, shift_mm: -2.38, offset: 2.34513}
+  - {gain: 41553.1, power: 1.48, shift_mm: 3.3, offset: 37.0442}
+  - {gain: 13104.8, power: 1.156, shift_mm: -1.64, offset: 14.0271}
+  - {gain: 43790.8, power: 1.4992, shift_mm: 3.3975, offset: 38.3796}
+  - {gain: 325579.0, power: 1.9996, shift_mm: 8.0575, offset: 20.5733}
+  - {gain: 57002.8, power: 1.5792, shift_mm: 4.3725, offset: 31.6864}
+  - {gain: 46794.9, power: 1.5232, shift_mm: 3.7225, offset: 47.4404}
+  - {gain: 62164.0, power: 1.6042, shift_mm: 4.655, offset: 45.7878}
+  - {gain: 33519.6, power: 1.464, shift_mm: 3.3325, offset: 30.7998}
+  - {gain: 38301.0, power: 1.4336, shift_mm: 3.4675, offset: 39.4233}
+  - {gain: 52294.3, power: 1.5066, shift_mm: 4.0325, offset: 41.0837}
+  - {gain: 70466.7, power: 1.681, shift_mm: 5.24, offset: 34.0734}
+  - {gain: 97512.6, power: 1.7094, shift_mm: 5.8775, offset: 31.868}
+  - {gain: 84982.5, power: 1.6656, shift_mm: 5.6325, offset: 33.9553}
+  - {gain: 128789.0, power: 1.7964, shift_mm: 6.3825, offset: 41.2516}
+  - {gain: 47364.3, power: 1.5096, shift_mm: 3.8675, offset: 47.0322}
+  - {gain: 47879.5, power: 1.502, shift_mm: 3.815, offset: 30.334}
+  - {gain: 49714.5, power: 1.5568, shift_mm: 4.425, offset: 31.5033}
+  - {gain: 24468.0, power: 1.3016, shift_mm: 2.0775, offset: 31.4724}
+  - {gain: 53132.2, power: 1.579, shift_mm: 4.5625, offset: 6.4819}
+  - {gain: 44659.7, power: 1.4676, shift_mm: 1.9725, offset: 2.73964}
+  - {gain: 114277.0, power: 1.7174, shift_mm: 5.5425, offset: 13.9849}
+  - {gain: 15239.4, power: 1.1786, shift_mm: -1.07, offset: -4.37192}
+  - {gain: 298664.0, power: 2.0044, shift_mm: 7.9225, offset: 16.8169}
+  - {gain: 97976.0, power: 1.703, shift_mm: 4.03, offset: 22.3107}
+  - {gain: 201626.0, power: 1.8798, shift_mm: 6.8175, offset: 17.1744}
+  - {gain: 162431.0, power: 1.8576, shift_mm: 6.765, offset: 23.6635}
+noise:
+  variance: {a: 0.0508106, k: 8.55493e-05}
+  channel_scale: [0.6926, 1.014, 0.9861, 0.7081, 1.107, 1.243, 0.8172, 0.7105, 1.048, 1.095, 1.259, 0.6825, 1.012, 0.917,
+    0.9372, 0.8843, 1.218, 1.928, 1.329, 1.115, 0.6129, 1.464, 0.9811, 0.9951, 0.8983, 1.005, 1.01, 1.033, 0.8165, 0.4326,
+    0.792, 0.8202, 1.119, 1.229, 1.007, 1.367, 0.5472, 1.422, 0.7116, 0.3011]
+correction: none
+frames: {pool: 10, length: 40, normalize: tile_minmax}
+operation:
+  belt_level: [162.0, 164.0, 142.0, 119.0, 137.0, 136.0, 123.0, 136.0, 102.0, 116.0, 136.0, 125.0, 137.0, 117.0, 132.0, 143.0,
+    104.0, 106.0, 135.0, 141.0, 175.0, 126.0, 136.0, 124.0, 107.0, 91.0, 94.0, 113.0, 180.0, 139.0, 113.0, 130.0, 112.0, 107.0,
+    107.0, 106.0, 133.0, 162.0, 161.0, 119.0]
+  sd: 3.63936
+  lag1: 0.997117
+  board_share: 0.414564
+  period: 42.75
+  periodic_share: 0.214859
+source:
+  calibration:
+    files: [data_5.csv, data_10.csv, data_15.csv, data_20.csv, data_25.csv, data_30.csv, data_35.csv, data_40.csv, data_45.csv,
+      data_50.csv, data_55.csv, data_60.csv, data_65.csv, data_70.csv, data_75.csv, data_80.csv, data_85.csv, data_90.csv,
+      data_95.csv, data_100.csv]
+    sha256: f0a6913c2cbe0001397374eeb4b778b51dcb7b82a070bf99b82fff1a37cfcfce
+    distances_mm: [5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 40.0, 45.0, 50.0, 55.0, 60.0, 65.0, 70.0, 75.0, 80.0, 85.0, 90.0,
+      95.0, 100.0]
+    samples_per_distance: 28
+    saturation: 2047
+  recordings:
+    files: [DATA_2.csv, DATA_3.csv, DATA_4.csv, DATA_5.csv, DATA_6.csv, DATA_7.csv, DATA_8.csv, DATA_9.csv, DATA_10.csv, DATA_11.csv,
+      DATA_12.csv, DATA_13.csv, DATA_14.csv, DATA_15.csv, DATA_16.csv, DATA_17.csv, DATA_18.csv, DATA_19.csv, DATA_20.csv,
+      DATA_21.csv, DATA_22.csv]
+    sha256: 11ab1b9e187f1d49883784ffe358ecca63d3f718a27d22181b757b70bf2579ef
+    polls: 185555

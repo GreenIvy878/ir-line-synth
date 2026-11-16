@@ -14,18 +14,18 @@ import numpy as np
 
 from . import morph
 from .background import BackgroundBank, background_options, identifier as background_identifier
-from .dataset import open_split, read_yolo_boxes, scale_boxes, sensor_profile
+from .dataset import open_split, read_yolo_boxes, scale_boxes, frame_geometry
 from .scene import SourceImage, prepare_entry, render_scene, validate_boxes, validate_pixels
 from .store import SyntheticStore, example_digest
 from .tape import render_tape, time_major_object
 
 
 class Workspace:
-    def __init__(self, data, profile=None):
-        """`data`: a dataset description (dataset.load_data_description). The sensor profile is
-        the dataset's own (given in it or read from its first frame) unless `profile` is given."""
+    def __init__(self, data, geometry=None):
+        """`data`: a dataset description (dataset.load_data_description). The frame geometry is
+        the dataset's own (given in it or read from its first frame) unless `geometry` is given."""
         self.data = data
-        self.profile = profile or sensor_profile(data)
+        self.geometry = geometry or frame_geometry(data)
         self.datasets = {}
         self.lock = threading.Lock()
         self.store = SyntheticStore(data, self.source_details)
@@ -57,7 +57,7 @@ class Workspace:
         options = background_options(reference["generated"])
         bank, used = self.background_bank(split), set()
         pixels = bank.generate(options, used)
-        validate_pixels(pixels, self.profile.frame_shape)
+        validate_pixels(pixels, self.geometry.frame_shape)
         return SourceImage(pixels, np.zeros((0, 4)), (), split, background_identifier(options),
                            tuple(bank.frame_names(used)))
 
@@ -96,7 +96,7 @@ class Workspace:
     def tape_background(self, background, length):
         """Background pixels [length, channels] (time-major) and their provenance."""
         if background["kind"] == "blank":
-            return np.zeros((length, self.profile.channels), np.float32), []
+            return np.zeros((length, self.geometry.channels), np.float32), []
         options = background_options({key: value for key, value in background.items() if key not in ("kind", "split")})
         bank, used = self.background_bank(background["split"]), set()
         pixels = bank.generate_tape(options, length, used)
@@ -105,7 +105,7 @@ class Workspace:
                              frames=frames)]
 
     def render_tape(self, spec, load_source):
-        return render_tape(spec, load_source, self.prepare_tape_object, self.tape_background, self.profile.channels)
+        return render_tape(spec, load_source, self.prepare_tape_object, self.tape_background, self.geometry.channels)
 
     def source_splits(self):
         """Splits that can supply real frames and objects: train and val, and test when data.yaml names it."""
@@ -116,7 +116,7 @@ class Workspace:
             raise ValueError("Select a source split: " + ", ".join(self.source_splits()))
         with self.lock:
             if split not in self.datasets:
-                self.datasets[split] = open_split(self.data, split, self.profile)
+                self.datasets[split] = open_split(self.data, split, self.geometry)
             return self.datasets[split]
 
     def source(self, reference):
@@ -134,7 +134,7 @@ class Workspace:
         label_path = dataset.root / "labels" / f"{path.stem}.txt"
         matrix = dataset.pixels(index)
         boxes = scale_boxes(read_yolo_boxes(label_path), matrix.shape)
-        validate_pixels(matrix, self.profile.frame_shape)
+        validate_pixels(matrix, self.geometry.frame_shape)
         # One class per box as the folder held when it was opened; a changed count fails below.
         labels = tuple(0 for _ in dataset.boxes[index])
         validate_boxes(boxes, labels, matrix.shape)

@@ -4,6 +4,8 @@
     scene-editor generate RECIPE [--output DIR] [--dry-run]
     scene-editor verify OUTPUT --data DATASET            saved examples render again exactly
     scene-editor constants [--output FILE]               the registry of fixed numbers (Markdown)
+    scene-editor fit-sensor --calibration PATH ... --output PROFILE   a sensor profile from measurements
+    scene-editor sensor-report --profile PROFILE --calibration PATH ...   the check of a profile
 """
 
 import argparse
@@ -28,9 +30,9 @@ def serve(args, parser):
         parser.error(str(error))
     # Exports do not record the dataset path, so say here which one the frames come from.
     print("Source dataset: " + ", ".join(f"{part} {data[part]}" for part in views.workspace.source_splits()))
-    profile = views.workspace.profile
-    print(f"Sensor line: {profile.channels} channels, frames of {profile.frame_length} polls "
-          f"(channels on {profile.sensor_axis})", flush=True)
+    geometry = views.workspace.geometry
+    print(f"Sensor line: {geometry.channels} channels, frames of {geometry.frame_length} polls "
+          f"(channels on {geometry.sensor_axis})", flush=True)
     try:
         server = make_server(views, args.port)
     except OSError as error:
@@ -80,6 +82,47 @@ def constants(args, parser):
     return 0
 
 
+def recordings_of(args):
+    """The recordings named by --recordings and --only: (polls of each, their numbers, their files)."""
+    from .calibration import number_ranges, numbered
+    from .framing import read_recording
+    if not args.recordings:
+        return [], [], []
+    files = numbered(args.recordings, number_ranges(args.only) if args.only else None)
+    numbers = [int("".join(ch for ch in path.stem if ch.isdigit())) for path in files]
+    return [read_recording(path, args.channels) for path in files], numbers, files
+
+
+def fit_sensor(args, parser):
+    from .calibration import fit_profile, read_captures
+    from .sensor_model import FrameSpec, save_profile
+    calibration = read_captures(args.calibration, args.clip)
+    args.channels = calibration.channels
+    recordings, _, files = recordings_of(args)
+    model = fit_profile(calibration, args.name, args.boards, args.adc_max,
+                        FrameSpec(args.pool, args.length, args.normalize), recordings, files)
+    header = (f"# Sensor profile fitted by {PROGRAM} {__version__} (scene-editor fit-sensor); "
+              "see docs/sensor_model.md.\n")
+    save_profile(model, args.output, header)
+    print(f"Written: {args.output} ({model.channels} channels"
+          + (f", bare belt of {len(recordings)} recordings" if recordings else "") + ")")
+    return 0
+
+
+def sensor_report(args, parser):
+    from .calibration import read_captures
+    from .sensor_model import load_profile
+    from .sensor_report import report
+    model = load_profile(args.profile)
+    calibration = read_captures(args.calibration, args.clip)
+    args.channels = model.channels
+    recordings, numbers, files = recordings_of(args)
+    text = report(model, calibration, recordings, numbers, files, args.dataset, args.recordings)
+    Path(args.output).write_text(text, encoding="utf-8", newline="\n")
+    print(f"Written: {args.output}")
+    return 0
+
+
 def build_parser():
     parser = argparse.ArgumentParser(
         prog=PROGRAM, description="Synthetic annotated data for lines of reflective IR distance sensors")
@@ -106,6 +149,33 @@ def build_parser():
     command = commands.add_parser("constants", help="The registry of the program's fixed numbers (Markdown)")
     command.add_argument("--output", metavar="FILE", help="Write it to this file (UTF-8)")
     command.set_defaults(handler=constants)
+
+    def measurements(command):
+        command.add_argument("--calibration", metavar="PATH", required=True,
+                             help="Calibration captures: a folder of data_<mm>.csv or a table channel,distance_mm,value")
+        command.add_argument("--clip", type=int, default=2047,
+                             help="Saturation of the captures: a node with a sample at or above it is left out")
+        command.add_argument("--recordings", metavar="DIR", help="Recordings of a working line (CSV, a row per poll)")
+        command.add_argument("--only", metavar="NUMBERS",
+                             help="Only the recordings with these numbers at the end of the name, e.g. 2-22")
+
+    command = commands.add_parser("fit-sensor", help="Fit a sensor profile to calibration captures and recordings")
+    measurements(command)
+    command.add_argument("--name", required=True, help="Name of the profile")
+    command.add_argument("--boards", type=int, default=1, help="Boards of the line (channels of a board in a row)")
+    command.add_argument("--adc-max", type=int, required=True, help="The largest code of the line in operation")
+    command.add_argument("--pool", type=int, default=1, help="Polls averaged into a frame row")
+    command.add_argument("--length", type=int, default=40, help="Rows of a frame")
+    command.add_argument("--normalize", choices=("tile_minmax", "none"), default="none")
+    command.add_argument("--output", metavar="PROFILE", required=True)
+    command.set_defaults(handler=fit_sensor)
+
+    command = commands.add_parser("sensor-report", help="Check a sensor profile against the measurements (Markdown)")
+    command.add_argument("--profile", required=True, help="A profile file or the name of a shipped profile")
+    measurements(command)
+    command.add_argument("--dataset", metavar="DIR", help="A dataset with manifest.csv (name, split, recording, tile)")
+    command.add_argument("--output", metavar="FILE", required=True)
+    command.set_defaults(handler=sensor_report)
     return parser
 
 
