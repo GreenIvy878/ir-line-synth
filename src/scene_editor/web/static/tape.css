@@ -1,0 +1,8 @@
+.tape-view{display:flex;gap:14px;align-items:flex-start;margin:12px 0}
+.tape-map{flex:0 0 80px;width:80px;height:720px;image-rendering:pixelated;background:var(--well);border:1px solid var(--line);cursor:pointer;touch-action:none}
+.tape-main{flex:0 1 480px;min-width:0;width:480px;max-width:100%;height:auto;image-rendering:pixelated;background:var(--well);border:1px solid var(--line);touch-action:none}
+.tape-side{flex:1 1 180px;min-width:150px}.tape-side h4{margin:0 0 8px}
+.tape-list{display:flex;flex-direction:column;gap:4px;max-height:720px;overflow:auto;position:relative}
+.tape-list button{text-align:left;font-size:12px;overflow-wrap:anywhere}.tape-list button.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.tape-nav{margin-bottom:6px}
+@media(max-width:900px){.tape-view{flex-wrap:wrap}}

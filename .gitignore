@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+synthetic_data/
+# Datasets and generated outputs live next to the code but are not part of it.
+real_data/
+synthetic_data*/
+Conveyor_line_*/
+morph_demo/

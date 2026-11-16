@@ -1,0 +1,18 @@
+.autogen-dialog{width:min(1440px,96vw);max-width:96vw;max-height:94vh;margin:auto;padding:22px;background:var(--plane);color:var(--ink);border:1px solid var(--line);border-radius:10px;overflow:auto}
+.autogen-dialog::backdrop{background:rgba(0,0,0,.55)}
+.autogen-heading{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:14px}.autogen-heading h2{margin:0}
+.autogen-layout{display:grid;grid-template-columns:minmax(280px,360px) minmax(0,1fr);gap:18px;align-items:start}
+.autogen-rules{display:flex;flex-direction:column;gap:12px}.autogen-rules label{display:flex;gap:8px;align-items:center;justify-content:space-between}
+.autogen-rules input[type=number]{width:96px}.autogen-rules select{max-width:210px}
+.autogen-pool{display:flex;gap:8px;overflow-x:auto;padding:6px 0 12px;margin-bottom:8px}
+.autogen-pool label{flex:0 0 180px;display:flex;gap:8px;align-items:start;padding:10px;background:var(--surface);border:1px solid var(--line);border-radius:6px;font-size:13px;overflow-wrap:anywhere}
+.autogen-gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:12px;max-height:62vh;overflow:auto;padding:4px}
+.autogen-candidate{padding:12px;margin:0}.autogen-candidate label{display:flex;gap:8px;align-items:center;font-weight:600}
+.autogen-candidate canvas{display:block;width:100%;height:auto;image-rendering:pixelated;margin:10px 0;border:1px solid var(--line)}
+.autogen-candidate p{font-size:13px;margin:6px 0}.autogen-candidate.chosen{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.autogen-save{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}.autogen-save .path{flex:1;min-width:220px}
+.autogen-save input[type=text]{width:100%}.autogen-dialog .card{margin-bottom:0}.autogen-dialog h3{margin-top:8px}
+.morph-gallery{grid-template-columns:repeat(auto-fill,minmax(min(100%,200px),1fr))}
+.morph-candidate p{font-size:12px}.morph-verdict{font-weight:600}.morph-verdict.ok{color:var(--ok,#2e9e5b)}.morph-verdict.no{color:var(--muted)}
+.morph-add{margin-top:12px}.autogen-rules h4{margin:6px 0 0}
+@media(max-width:900px){.autogen-layout{grid-template-columns:1fr}.autogen-dialog{padding:14px}.autogen-gallery{max-height:52vh}}

@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "synthetic-scene-editor"
+dynamic = ["version"]
+description = "Synthetic annotated data for lines of reflective IR distance sensors, from a real YOLO dataset"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=1.26,<3",
+    "Pillow>=10,<13",
+    "PyYAML>=6,<7",
+]
+
+[project.scripts]
+scene-editor = "scene_editor.__main__:main"
+
+[tool.setuptools.dynamic]
+version = {attr = "scene_editor.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+scene_editor = ["web/static/*.html", "web/static/*.js", "web/static/*.css"]

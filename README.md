@@ -1,0 +1,237 @@
+# Synthetic Scene Editor
+
+Synthetic annotated data for a line of reflective IR distance sensors, built
+from an existing YOLO dataset of its grayscale frames: cut annotated objects out
+of real frames, make new ones by replaying them with another motion, place them
+on real or generated backgrounds, and export the result as a new YOLO dataset
+(or as long tapes) with the provenance of every example. A local web editor for
+working by hand, and recipes run from the command line for whole batches.
+
+It was written to add hard cases (crowded, overlapping objects) to the training
+data of EggCounter, a detector for a 40-channel line, and works with any line:
+the number of channels and the length of a frame come from the dataset (see
+*Sensor line*).
+
+## What it does
+
+- **Manual editor.** Pick a source frame and click an annotated box to add the
+  object to a bank. Flip, rotate, scale, change brightness, cut it by an
+  intensity mask, then place it on a background frame by click or drag.
+  Blending (replace, max, additive), soft edges and a maximum IoU between boxes
+  are checked on every change; undo and redo work on the whole scene.
+- **Variations.** Save N copies of a scene with random shifts of position,
+  brightness, angle and scale of the added objects, from a seed.
+- **Object generator.** Make new objects from real ones and pick them by hand.
+  A frame is a space-time scan (rows are successive polls of the sensor line),
+  so an object is replayed with a new motion: speed (long and short objects),
+  drift across the belt (rolling), swings and lost contact (swinging, torn),
+  then imperfections are added (pixel noise, the bright part moved towards an
+  edge, uneven channels, dropped pixels). A filter compares each candidate with
+  real objects of the same kind and only advises; chosen objects go to the
+  bank and work like real ones. See `morph.py`.
+- **Generated backgrounds.** Empty backgrounds stitched from blocks of empty
+  sensor columns of real frames, so every channel keeps its own offset and
+  noise (`background.py`). A tape has one set of sensors: the offsets of its
+  channels are fixed by the first piece and stay the same along the whole tape,
+  later pieces bring only their noise, so there are no seams. The spread of a
+  generated background (largest minus smallest value) is limited to 3% of the
+  full scale (7 of 255 levels), for frames and tapes alike. Rebuilt from a seed
+  whenever a scene is rendered.
+- **Autogenerator.** Generate a batch of candidate scenes by rules (object
+  count, reflections, rotation, brightness range, insertion by box or mask,
+  maximum IoU; background: the chosen one, a random real frame or a new
+  generated one per image), review the previews and save only the selected ones.
+- **Tapes.** A recording instead of a frame: all channels and any number of rows
+  (up to 20000). Choose objects from the bank, a layout function (random, even
+  steps, groups of objects close together), the number of objects and the length
+  in rows, and generate. The tape can then be edited: add objects of the bank by
+  click, delete or move them (drag or X/Y), undo and redo, change the background
+  seed. Saved as a CSV of the signal, a CSV of the labels and a JSON description
+  (`tape.py`).
+- **Safe export.** Scenes are written as 8-bit PNG, YOLO labels and a
+  provenance JSON per scene, into a folder that must lie outside the source
+  dataset. Identical scenes are not saved twice, and a scene goes only into the
+  split all of its sources come from (see *One split at a time*). The preview
+  is the exact file content: intensities are rounded to the 256 levels before
+  display.
+
+## One split at a time
+
+The output has the splits `train`, `val` and `test`, like the source. A scene
+or a tape is saved only into the split that **every** one of its objects and
+its background come from: a real background frame, or the frames whose empty
+columns make a generated background. Anything else is refused with an error,
+`val` and `test` included, so nothing of one source split reaches another.
+
+- The autogenerator and tapes have a rule `split` (the page: *Часть набора*):
+  pool objects, the fixed, real or generated background and the save all use
+  it. Bank objects of another split are shown greyed out and not used.
+  (`background_split`, the old name, is accepted only when it equals `split`.)
+- The object generator takes its sources, statistics and filter from one split.
+- The provenance of a scene or tape lists, for every object, the source frame
+  (`frame`, e.g. `scan_0012`), its `split` and `box_index`; for the background,
+  its split and the source `frames`.
+
+**Stubs.** An object is *cut by the frame edge* (`clipped`) when its box comes
+closer than 1 cell to any edge of the frame (as `TOUCH_TOLERANCE` in SensorLine)
+or when one of its pixels above the threshold lies on the first or last row or
+column. Stubs are never used to make new objects (neither picked automatically
+nor given as sources), nor counted in the statistics and kinds of the filter,
+nor taken from the bank by the autogenerator and tapes. The manual editor shows
+them with a dashed box marked «обрубок» and still lets you place them by hand.
+
+**The smallest new objects.** In a batch of N ≥ 10 new objects of one kind, the
+⌊0.1·N⌋ shortest (rows above the threshold) and the ⌊0.1·N⌋ narrowest (sensors)
+are removed; for the rolling and swinging kinds, which can still come out
+small and faint, also the ⌊0.1·N⌋ smallest by area (pixels above the threshold)
+and the ⌊0.2·N⌋ dimmest (mean of those pixels). An object in several lists is
+removed once, ties broken by the seed. The smallest value of each measure left
+is fixed as a threshold, and the removed objects are replaced by new ones of the
+same kind, sources and filter that reach every threshold. The response
+(`size_filter`) says how many were removed and replaced and gives the thresholds.
+
+To build the datasets of one source split by split: start
+`scene-editor serve --data path\to\main_flow`, choose *Часть набора* `train` in the
+object generator, the autogenerator or the tape, collect bank objects from
+`train` frames, generate and save; then the same with `val` and with `test`.
+
+## Install and run
+
+Python 3.12 or newer.
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e .
+.\.venv\Scripts\scene-editor.exe serve --data path\to\data.yaml
+```
+
+Open `http://127.0.0.1:8009/` (`--port` changes the port). The output folder
+is chosen in the page; by default `synthetic_data` in the current directory.
+The editor prints the dataset and the sensor line it reads when it starts; page
+exports do not record the dataset path, so check that line in the console.
+
+`run.ps1` / `run.bat` install the package if needed, start the editor and open the
+browser: `.\run.ps1 -Data <folder or data.yaml>`, or set the dataset once with
+`setx SCENE_EDITOR_DATA "<folder>"` and start `run.bat` without arguments.
+
+## Command line
+
+```text
+scene-editor serve --data DATASET [--port 8009]      the editor in the browser
+scene-editor generate RECIPE [--output DIR] [--dry-run]
+scene-editor verify OUTPUT --data DATASET            saved examples render again exactly
+scene-editor constants [--output FILE]               the registry of fixed numbers
+scene-editor --version
+```
+
+- **generate** runs a recipe: one YAML file with the dataset, the split, one seed,
+  the pool of objects and what to make (scenes, tapes). The same recipe on the same
+  data makes the same files. Every run writes `runs/run_<time>_<recipe digest>.json`
+  (program version, recipe and its SHA-256, the sensor line, what was made and what
+  was refused) and a copy of the recipe into the output. See `docs/recipes.md`.
+- **verify** renders every saved scene and tape of an output again from its own
+  description and compares it with the recorded digest and with the files on disk.
+  It exits with 1 and names the example when anything differs.
+- **constants** prints `docs/constants.md`: the value, unit, origin (measured,
+  tuned, external, bound, definition) and meaning of every fixed number of the
+  program. The tests fail when a numeric constant has no entry or the document is
+  out of date.
+
+## Sensor line
+
+A line of reflective IR distance sensors is polled at a fixed rate while objects
+pass under it; successive polls stacked together give a frame: one axis holds the
+channels, the other the polls (time). The *sensor profile* of a dataset is the
+number of channels, the number of polls in a frame and the image axis of the
+channels. Scenes have the size of the frames, tapes have all the channels, and an
+output holds frames of one size.
+
+## Source dataset
+
+`--data` takes a YAML file with a `data` section, or a folder that contains
+`data.yaml`. Paths are relative to the YAML file:
+
+```yaml
+data:
+  train: ./train          # images/ and labels/ (YOLO, class 0)
+  val: ./val
+  test: ./test            # optional
+  sensor_axis: x          # image axis of the channels: x or y (default x)
+  scale: 255.0            # intensity = (stored value - offset) / scale (default 255)
+  offset: 0.0
+  channels: 40            # optional: channels of the line
+  frame_length: 40        # optional: polls in a frame
+```
+
+Frames must be grayscale and all of one size. Without `channels` and
+`frame_length` the first frame of the dataset sets them. An EggCounter model
+configuration has the same `data` section and can be passed directly.
+
+## Output
+
+```text
+synthetic_data/
+  data.yaml                   the same data section: ./train, ./val, ./test, scale 255
+  synthetic_dataset.json      export format marker
+  train/, val/ and test/
+    images/synthetic_<id>.png
+    labels/synthetic_<id>.txt
+    provenance/synthetic_<id>.json   program version, source frames, boxes, transforms, statistics
+  runs/                       records of the recipe runs (command line)
+```
+
+Tapes go into the same folder, next to the scenes:
+
+```text
+synthetic_data/tapes/train/, val/ and test/
+  <name>.csv          the signal: a row per poll (time), a column per channel;
+                      8-bit levels 0-255 (as in the PNG) or intensity 0-1, optional header
+  <name>.labels.csv   one row per object: index, class, channel_min, row_min,
+                      channel_max, row_max (boxes in channels and rows), source, kind
+  <name>.json         the full tape description (it renders again from it), sources, statistics
+```
+
+The columns are always channels and the rows always time, whatever `sensor_axis`
+of the source frames is. Identical tapes are not saved twice, and a tape goes only
+into the split of all its objects and its background.
+
+An output made before the `test` split existed gets `test: ./test` added to its
+`data.yaml` on the next save.
+
+Because the output describes itself with `data.yaml`, it can be used as a
+training set directly, for example with `train.py --data synthetic_data` in
+EggCounter, or as the source of the next editing session.
+
+## Structure
+
+```text
+src/scene_editor/
+  sensor.py       the sensor line: channels, polls per frame, axis
+  dataset.py      reading the source dataset (YOLO frames, data.yaml)
+  scene.py        objects cut from frames, their transforms, placement and blending
+  morph.py        new objects: a real object replayed with another motion; the filter
+  background.py   empty backgrounds from the empty channels of real frames
+  generator.py    batches of scenes by rules
+  tape.py         long recordings
+  store.py        the export: PNG + YOLO + provenance, tapes as CSV; duplicates, splits
+  workspace.py    the work over one dataset, shared by the page and the command line
+  recipe.py       recipes and their runs
+  verify.py       saved examples against their descriptions
+  constants.py    the registry of fixed numbers
+  __main__.py     the command line
+  web/            the local web interface: server, JSON API, page
+```
+
+## Tests
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests
+```
+
+## Limitations
+
+- Labels have a single class.
+- The thresholds of the kinds of objects and of the filter are tuned on a line of
+  40 channels and 40-poll frames, in channels and polls (see `docs/constants.md`);
+  on another line they may need tuning.
+- The page text is mostly in Russian, the command line in English.

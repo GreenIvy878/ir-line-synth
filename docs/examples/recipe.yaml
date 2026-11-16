@@ -1,0 +1,27 @@
+recipe: 1                        # версия формата рецепта
+data: ../datasets/main_flow      # исходный набор: папка с data.yaml или сам файл (путь от рецепта)
+output: ./synthetic_train        # куда сохранять (путь от рецепта); вне исходного набора
+split: train                     # часть набора: все источники и всё сохранённое — только из неё
+seed: 17                         # единственное зерно запуска
+
+objects:                         # набор объектов; нужна хотя бы одна из двух частей
+  real:                          # целые реальные объекты части (обрезанные краем кадра не берутся)
+    kinds: [blob, long, short, rolling, swinging]
+    limit: 300                   # не больше стольких, случайный выбор от зерна
+  generated:                     # новые объекты: реальный объект, воспроизведённый с другим движением
+    - kind: rolling
+      count: 30
+      limits: {noise_max: 0.1, stripes_max: 0.2}
+      accept: filter             # filter — только принятые фильтром; all — все
+    - kind: swinging
+      count: 30
+
+scenes:                          # партия кадров по правилам автогенератора
+  images: 100
+  rules: {count_min: 4, count_max: 9, max_iou: 0.15, background_mode: generated}
+
+tapes:                           # длинные записи по правилам ленты
+  count: 2
+  rules: {length: 2000, objects: 80, layout: clusters}
+  values: levels                 # levels — коды 0–255; intensity — доли 0–1
+  header: false                  # строка заголовка в CSV сигнала
