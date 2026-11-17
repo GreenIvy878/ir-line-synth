@@ -8,8 +8,8 @@ import numpy as np
 from PIL import Image
 import yaml
 
-from scene_editor.dataset import load_data_description, open_split, read_yolo_boxes, frame_geometry
-from scene_editor.sensor import FrameGeometry
+from ir_line_synth.dataset import load_data_description, open_split, read_yolo_boxes, frame_geometry
+from ir_line_synth.sensor import FrameGeometry
 
 
 def write_frames(split_root: Path, labels="0 0.1 0.3 0.05 0.1\n", size=(40, 40)):

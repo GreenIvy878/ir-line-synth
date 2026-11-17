@@ -1,4 +1,4 @@
-# Synthetic Scene Editor
+# IR-Line-Synth
 
 Synthetic annotated data for a line of reflective IR distance sensors, built
 from an existing YOLO dataset of its grayscale frames: cut annotated objects out
@@ -91,7 +91,7 @@ same kind, sources and filter that reach every threshold. The response
 (`size_filter`) says how many were removed and replaced and gives the thresholds.
 
 To build the datasets of one source split by split: start
-`scene-editor serve --data path\to\main_flow`, choose *Часть набора* `train` in the
+`ir-line-synth serve --data path\to\main_flow`, choose *Часть набора* `train` in the
 object generator, the autogenerator or the tape, collect bank objects from
 `train` frames, generate and save; then the same with `val` and with `test`.
 
@@ -102,7 +102,7 @@ Python 3.12 or newer.
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e .
-.\.venv\Scripts\scene-editor.exe serve --data path\to\data.yaml
+.\.venv\Scripts\ir-line-synth.exe serve --data path\to\data.yaml
 ```
 
 Open `http://127.0.0.1:8009/` (`--port` changes the port). The output folder
@@ -112,18 +112,18 @@ exports do not record the dataset path, so check that line in the console.
 
 `run.ps1` / `run.bat` install the package if needed, start the editor and open the
 browser: `.\run.ps1 -Data <folder or data.yaml>`, or set the dataset once with
-`setx SCENE_EDITOR_DATA "<folder>"` and start `run.bat` without arguments.
+`setx IR_LINE_SYNTH_DATA "<folder>"` and start `run.bat` without arguments.
 
 ## Command line
 
 ```text
-scene-editor serve --data DATASET [--port 8009]      the editor in the browser
-scene-editor generate RECIPE [--output DIR] [--dry-run]
-scene-editor verify OUTPUT --data DATASET            saved examples render again exactly
-scene-editor constants [--output FILE]               the registry of fixed numbers
-scene-editor fit-sensor --calibration PATH ... --output PROFILE     a sensor profile from measurements
-scene-editor sensor-report --profile PROFILE --calibration PATH ... the check of a profile
-scene-editor --version
+ir-line-synth serve --data DATASET [--port 8009]      the editor in the browser
+ir-line-synth generate RECIPE [--output DIR] [--dry-run]
+ir-line-synth verify OUTPUT --data DATASET            saved examples render again exactly
+ir-line-synth constants [--output FILE]               the registry of fixed numbers
+ir-line-synth fit-sensor --calibration PATH ... --output PROFILE     a sensor profile from measurements
+ir-line-synth sensor-report --profile PROFILE --calibration PATH ... the check of a profile
+ir-line-synth --version
 ```
 
 - **generate** runs a recipe: one YAML file with the dataset, the split, one seed,
@@ -224,7 +224,7 @@ EggCounter, or as the source of the next editing session.
 ## Structure
 
 ```text
-src/scene_editor/
+src/ir_line_synth/
   sensor.py       the sensor line: channels, polls per frame, axis
   dataset.py      reading the source dataset (YOLO frames, data.yaml)
   scene.py        objects cut from frames, their transforms, placement and blending

@@ -1,4 +1,4 @@
-# Sensor profile fitted by scene-editor 0.2.0 (scene-editor fit-sensor); see docs/sensor_model.md.
+# Sensor profile fitted by ir-line-synth 0.2.0 (ir-line-synth fit-sensor); see docs/sensor_model.md.
 profile: 1
 name: reference_line_40
 channels: 40

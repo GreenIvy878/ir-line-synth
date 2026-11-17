@@ -1,15 +1,15 @@
 # Launch the editor and open it in the browser.
 # Usage: .\run.ps1 -Data <folder or data.yaml> [-Port 8009]
-# Without -Data the dataset is taken from the SCENE_EDITOR_DATA environment variable, so a
-# machine can keep its own source once:  setx SCENE_EDITOR_DATA "C:\path\to\dataset"
+# Without -Data the dataset is taken from the IR_LINE_SYNTH_DATA environment variable, so a
+# machine can keep its own source once:  setx IR_LINE_SYNTH_DATA "C:\path\to\dataset"
 # A relative -Data is taken relative to this folder; the editor prints the dataset it reads.
 param(
     [int]$Port = 8009,
-    [string]$Data = $env:SCENE_EDITOR_DATA
+    [string]$Data = $env:IR_LINE_SYNTH_DATA
 )
 
 if (-not $Data) {
-    Write-Error "Name the source dataset: .\run.ps1 -Data <folder or data.yaml>, or set SCENE_EDITOR_DATA."
+    Write-Error "Name the source dataset: .\run.ps1 -Data <folder or data.yaml>, or set IR_LINE_SYNTH_DATA."
     exit 1
 }
 
@@ -20,7 +20,7 @@ $dataPath = if ([System.IO.Path]::IsPathRooted($Data)) { $Data } else { Join-Pat
 if (-not (Test-Path $python)) {
     py -3.12 -m venv (Join-Path $root ".venv")
 }
-& $python -c "import scene_editor" 2>$null
+& $python -c "import ir_line_synth" 2>$null
 if ($LASTEXITCODE -ne 0) {
     & $python -m pip install -e $root
 }
@@ -31,4 +31,4 @@ Start-Job -ArgumentList $Port -ScriptBlock {
     Start-Process "http://127.0.0.1:$p/"
 } | Out-Null
 
-& $python -m scene_editor serve --data $dataPath --port $Port
+& $python -m ir_line_synth serve --data $dataPath --port $Port

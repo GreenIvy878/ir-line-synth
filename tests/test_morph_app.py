@@ -9,11 +9,11 @@ import unittest
 import numpy as np
 from PIL import Image
 
-from scene_editor import morph
-from scene_editor.background import BackgroundBank, background_options
-from scene_editor.dataset import load_data_description, open_split, read_yolo_boxes
-from scene_editor.scene import PreparedObject, SourceImage, check_placement, render_scene
-from scene_editor.web.views import EditorViews
+from ir_line_synth import morph
+from ir_line_synth.background import BackgroundBank, background_options
+from ir_line_synth.dataset import load_data_description, open_split, read_yolo_boxes
+from ir_line_synth.scene import PreparedObject, SourceImage, check_placement, render_scene
+from ir_line_synth.web.views import EditorViews
 from test_morph import draw_egg, kinds_frame, still
 
 

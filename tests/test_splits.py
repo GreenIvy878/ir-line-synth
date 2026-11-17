@@ -9,9 +9,9 @@ import unittest
 import numpy as np
 from PIL import Image
 
-from scene_editor import morph
-from scene_editor.dataset import load_data_description
-from scene_editor.web.views import EditorViews
+from ir_line_synth import morph
+from ir_line_synth.dataset import load_data_description
+from ir_line_synth.web.views import EditorViews
 from test_morph import all_objects, draw_egg, kinds_frame
 
 

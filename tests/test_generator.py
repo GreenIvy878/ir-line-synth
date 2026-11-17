@@ -14,10 +14,10 @@ from urllib.request import Request, urlopen
 import numpy as np
 from PIL import Image
 
-from scene_editor.generator import generate_candidates, generator_options
-from scene_editor.scene import SourceImage, box_iou, feather_mask, render_scene
-from scene_editor.web.server import make_server
-from scene_editor.web.views import EditorViews
+from ir_line_synth.generator import generate_candidates, generator_options
+from ir_line_synth.scene import SourceImage, box_iou, feather_mask, render_scene
+from ir_line_synth.web.server import make_server
+from ir_line_synth.web.views import EditorViews
 from test_editor import background, load_source, scene, source, stored, write_dataset
 
 

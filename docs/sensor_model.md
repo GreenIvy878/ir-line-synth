@@ -3,7 +3,7 @@
 Документ описывает модель датчика программы: что она получает на вход, какими формулами и параметрами
 описан каждый шаг, откуда берутся значения параметров и что модель сознательно не описывает. Численные
 результаты проверки модели на эталонной линейке приведены в [sensor_validation.md](sensor_validation.md);
-этот документ создаётся командой `scene-editor sensor-report` и не правится вручную.
+этот документ создаётся командой `ir-line-synth sensor-report` и не правится вручную.
 
 ## 1. Граница
 
@@ -13,7 +13,7 @@
 периодом, последовательные опросы образуют развёртку «каналы × время».
 
 Конкретная линейка задаётся **профилем** — файлом YAML (раздел 8). Профиль можно получить подбором по
-калибровочным замерам (команда `scene-editor fit-sensor`), задать по паспортным данным или вручную. В
+калибровочным замерам (команда `ir-line-synth fit-sensor`), задать по паспортным данным или вручную. В
 программе есть эталонный профиль линейки из 40 каналов, по которой проверялась модель, и пример
 профиля без привязки к реальному устройству.
 
@@ -190,9 +190,9 @@ source:                          # откуда взяты значения: и�
 - `reference_line_40` — эталонная линейка, подобран командой
 
   ```powershell
-  scene-editor fit-sensor --calibration <captures> --clip 2047 --recordings "<raw data_40>" --only 2-22 `
+  ir-line-synth fit-sensor --calibration <captures> --clip 2047 --recordings "<raw data_40>" --only 2-22 `
       --name reference_line_40 --boards 5 --adc-max 4095 --pool 10 --length 40 --normalize tile_minmax `
-      --output src/scene_editor/profiles/reference_line_40.yaml
+      --output src/ir_line_synth/profiles/reference_line_40.yaml
   ```
 
 - `example_line_32` — пример без привязки к устройству: 32 канала, 10-битный АЦП, номинальные значения с
@@ -224,7 +224,7 @@ source:                          # откуда взяты значения: и�
 Проверка выполняется командой
 
 ```powershell
-scene-editor sensor-report --profile reference_line_40 --calibration <captures> --recordings "<raw data_40>" `
+ir-line-synth sensor-report --profile reference_line_40 --calibration <captures> --recordings "<raw data_40>" `
     --only 2-22 --dataset <main_flow> --output docs/sensor_validation.md
 ```
 

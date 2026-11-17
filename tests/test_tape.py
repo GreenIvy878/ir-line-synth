@@ -12,16 +12,16 @@ from urllib.request import Request, urlopen
 
 import numpy as np
 
-from scene_editor import morph
-from scene_editor.background import BackgroundBank, background_options
-from scene_editor.dataset import open_split
-from scene_editor.scene import PreparedObject, box_iou, pixel_levels, prepare_entry, scene_statistics
-from scene_editor.web.server import make_server
-from scene_editor.tape import (
+from ir_line_synth import morph
+from ir_line_synth.background import BackgroundBank, background_options
+from ir_line_synth.dataset import open_split
+from ir_line_synth.scene import PreparedObject, box_iou, pixel_levels, prepare_entry, scene_statistics
+from ir_line_synth.web.server import make_server
+from ir_line_synth.tape import (
     BoxSet, generate_tape, render_tape, tape_csv, tape_digest, tape_options, tape_rules, tape_statistics,
     time_major_object,
 )
-from scene_editor.web.views import EditorViews
+from ir_line_synth.web.views import EditorViews
 from test_editor import load_source, source
 from test_morph import kinds_frame, still
 from test_morph_app import write_kinds_dataset

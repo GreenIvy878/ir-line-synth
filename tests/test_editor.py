@@ -15,12 +15,12 @@ import numpy as np
 from PIL import Image
 import yaml
 
-from scene_editor.dataset import open_split
-from scene_editor.scene import (RenderedScene, SourceImage, box_iou, make_variation,
+from ir_line_synth.dataset import open_split
+from ir_line_synth.scene import (RenderedScene, SourceImage, box_iou, make_variation,
     prepare_object, render_scene, scene_statistics)
-from scene_editor.web.server import make_server
-from scene_editor.store import SyntheticStore, example_digest
-from scene_editor.web.views import EditorViews
+from ir_line_synth.web.server import make_server
+from ir_line_synth.store import SyntheticStore, example_digest
+from ir_line_synth.web.views import EditorViews
 
 
 def source(split="train"):
@@ -291,7 +291,7 @@ class SyntheticExportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             store = SyntheticStore(dict(train=root / "raw/train", val=root / "raw/val", sensor_axis="x"))
-            from scene_editor import store as synthetic_store
+            from ir_line_synth import store as synthetic_store
             original = synthetic_store.exclusive_write
             def fail(path, payload, created):
                 if path.suffix == ".txt":

@@ -1,6 +1,6 @@
 # Проверка модели датчика: профиль reference_line_40
 
-Документ создан командой `scene-editor sensor-report` (scene-editor 0.2.0) и не правится вручную.
+Документ создан командой `ir-line-synth sensor-report` (ir-line-synth 0.2.0) и не правится вручную.
 Модель описана в [sensor_model.md](sensor_model.md).
 
 Исходные данные:

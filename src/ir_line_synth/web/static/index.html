@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Synthetic Scene Editor</title>
+<title>IR-Line-Synth</title>
 <script>
 /* Apply a saved theme before first paint; without one the OS setting decides. */
-try { const saved = localStorage.getItem('scene-editor-theme'); if (saved) document.documentElement.dataset.theme = saved; } catch (error) {}
+try { const saved = localStorage.getItem('ir-line-synth-theme'); if (saved) document.documentElement.dataset.theme = saved; } catch (error) {}
 </script>
 <link rel="stylesheet" href="/base.css">
 <link rel="stylesheet" href="/editor.css">
@@ -16,7 +16,7 @@ try { const saved = localStorage.getItem('scene-editor-theme'); if (saved) docum
 <body>
 <a class="skip-link" href="#content">Skip to content</a>
 <header class="topbar">
-  <div class="brand"><span class="brand-mark" aria-hidden="true"></span><h1>Synthetic Scene Editor</h1></div>
+  <div class="brand"><span class="brand-mark" aria-hidden="true"></span><h1>IR-Line-Synth</h1></div>
   <button id="theme" type="button" class="quiet" aria-label="Switch between light and dark theme">Theme</button>
 </header>
 <div class="toolbar" aria-label="Synthetic data controls">

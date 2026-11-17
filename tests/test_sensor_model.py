@@ -13,16 +13,16 @@ import numpy as np
 from PIL import Image
 import yaml
 
-from scene_editor.__main__ import main
-from scene_editor.calibration import (
+from ir_line_synth.__main__ import main
+from ir_line_synth.calibration import (
     belt_statistics, fit_noise, fit_operation, fit_profile, fit_response, number_ranges, read_captures,
     rounded_variance,
 )
-from scene_editor.framing import frames_from_polls, normalize, read_recording, tiles
-from scene_editor.sensor_model import (
+from ir_line_synth.framing import frames_from_polls, normalize, read_recording, tiles
+from ir_line_synth.sensor_model import (
     FrameSpec, OperationNoise, Response, SensorModel, SensorNoise, load_profile, model_from, profile_dict,
 )
-from scene_editor.sensor_report import check_frames, check_noise, report
+from ir_line_synth.sensor_report import check_frames, check_noise, report
 
 
 DISTANCES = np.arange(5.0, 101.0, 5.0)

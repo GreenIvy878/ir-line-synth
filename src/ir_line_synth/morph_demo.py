@@ -1,6 +1,6 @@
 """Demonstrate motion replay (morph.py) on a real dataset.
 
-    python -m scene_editor.morph_demo --data real_data --out morph_demo
+    python -m ir_line_synth.morph_demo --data real_data --out morph_demo
 
 Writes into --out:
   real_kinds.png         real training objects grouped by the detected kind

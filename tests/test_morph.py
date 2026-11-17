@@ -10,8 +10,8 @@ from unittest.mock import patch
 import numpy as np
 from PIL import Image
 
-from scene_editor import morph
-from scene_editor.dataset import read_yolo_boxes
+from ir_line_synth import morph
+from ir_line_synth.dataset import read_yolo_boxes
 
 
 def draw_egg(frame, x0, y0, rows, width=3.5, peak=0.9, track=None, gain=None):
@@ -276,7 +276,7 @@ class ShapeRuleTests(unittest.TestCase):
 
 class DemoTests(unittest.TestCase):
     def test_demo_writes_pictures_report_and_a_valid_train_dataset(self):
-        from scene_editor import morph_demo
+        from ir_line_synth import morph_demo
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for split in ("train", "val"):
@@ -315,7 +315,7 @@ class DemoTests(unittest.TestCase):
                     self.assertEqual((picture.size, picture.mode), ((40, 40), "L"))
 
     def test_demo_refuses_output_inside_the_source(self):
-        from scene_editor import morph_demo
+        from ir_line_synth import morph_demo
         with tempfile.TemporaryDirectory() as directory:
             raw = Path(directory) / "raw"
             for split in ("train", "val"):

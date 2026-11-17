@@ -12,11 +12,11 @@ import numpy as np
 from PIL import Image
 import yaml
 
-from scene_editor import __version__, constants
-from scene_editor.__main__ import main
-from scene_editor.dataset import load_data_description
-from scene_editor.recipe import load_recipe, run, step_seed
-from scene_editor.verify import verify
+from ir_line_synth import __version__, constants
+from ir_line_synth.__main__ import main
+from ir_line_synth.dataset import load_data_description
+from ir_line_synth.recipe import load_recipe, run, step_seed
+from ir_line_synth.verify import verify
 from test_splits import write_split_dataset
 
 
@@ -167,7 +167,7 @@ class ConstantsTests(unittest.TestCase):
     def test_the_document_matches_the_code(self):
         document = Path(__file__).resolve().parents[1] / "docs" / "constants.md"
         self.assertEqual(document.read_text(encoding="utf-8"), constants.markdown(),
-                         "Run: python -m scene_editor constants --output docs/constants.md")
+                         "Run: python -m ir_line_synth constants --output docs/constants.md")
 
     def test_numbers_are_told_from_other_constants(self):
         self.assertTrue(constants.is_numeric((1, 2.5)))

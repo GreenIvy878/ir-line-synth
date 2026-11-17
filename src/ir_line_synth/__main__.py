@@ -1,11 +1,11 @@
 """The command line.
 
-    scene-editor serve --data DATASET [--port 8009]      the editor in the browser
-    scene-editor generate RECIPE [--output DIR] [--dry-run]
-    scene-editor verify OUTPUT --data DATASET            saved examples render again exactly
-    scene-editor constants [--output FILE]               the registry of fixed numbers (Markdown)
-    scene-editor fit-sensor --calibration PATH ... --output PROFILE   a sensor profile from measurements
-    scene-editor sensor-report --profile PROFILE --calibration PATH ...   the check of a profile
+    ir-line-synth serve --data DATASET [--port 8009]      the editor in the browser
+    ir-line-synth generate RECIPE [--output DIR] [--dry-run]
+    ir-line-synth verify OUTPUT --data DATASET            saved examples render again exactly
+    ir-line-synth constants [--output FILE]               the registry of fixed numbers (Markdown)
+    ir-line-synth fit-sensor --calibration PATH ... --output PROFILE   a sensor profile from measurements
+    ir-line-synth sensor-report --profile PROFILE --calibration PATH ...   the check of a profile
 """
 
 import argparse
@@ -38,7 +38,7 @@ def serve(args, parser):
     except OSError as error:
         parser.error(f"Port {args.port} is not available: another editor is probably still running. "
                      f"Stop it or choose another --port. ({error})")
-    print(f"Synthetic Scene Editor: http://127.0.0.1:{server.server_port}/", flush=True)
+    print(f"IR-Line-Synth: http://127.0.0.1:{server.server_port}/", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
@@ -101,7 +101,7 @@ def fit_sensor(args, parser):
     recordings, _, files = recordings_of(args)
     model = fit_profile(calibration, args.name, args.boards, args.adc_max,
                         FrameSpec(args.pool, args.length, args.normalize), recordings, files)
-    header = (f"# Sensor profile fitted by {PROGRAM} {__version__} (scene-editor fit-sensor); "
+    header = (f"# Sensor profile fitted by {PROGRAM} {__version__} (ir-line-synth fit-sensor); "
               "see docs/sensor_model.md.\n")
     save_profile(model, args.output, header)
     print(f"Written: {args.output} ({model.channels} channels"

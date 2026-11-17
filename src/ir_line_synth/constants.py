@@ -3,7 +3,7 @@
 Every numeric constant at the top level of a core module (CORE_MODULES) is listed here;
 the tests fail when one is added without an entry, or an entry names no constant. The
 values are read from the modules themselves, so the registry cannot drift from the code.
-docs/constants.md is this table as text (python -m scene_editor constants --output docs/constants.md).
+docs/constants.md is this table as text (python -m ir_line_synth constants --output docs/constants.md).
 
 The descriptions are in Russian, like the rest of the user documentation.
 """
@@ -226,7 +226,7 @@ def markdown():
         "# Реестр констант",
         "",
         "Все фиксированные числа программы: значение, единица, происхождение и смысл. Документ создан командой",
-        "`python -m scene_editor constants --output docs/constants.md`; тесты проверяют, что он совпадает с кодом и что в коде",
+        "`python -m ir_line_synth constants --output docs/constants.md`; тесты проверяют, что он совпадает с кодом и что в коде",
         "нет числовых констант без описания.",
         "",
         "Происхождение: **измерено** — посчитано по реальным данным, источник назван; **подобрано** — выбрано",

@@ -159,7 +159,7 @@ def report(model, calibration, recordings, numbers, recording_files, dataset=Non
     lines = [
         f"# Проверка модели датчика: профиль {model.name}",
         "",
-        f"Документ создан командой `scene-editor sensor-report` ({PROGRAM} {__version__}) и не правится вручную.",
+        f"Документ создан командой `ir-line-synth sensor-report` ({PROGRAM} {__version__}) и не правится вручную.",
         "Модель описана в [sensor_model.md](sensor_model.md).",
         "",
         "Исходные данные:",

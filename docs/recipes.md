@@ -5,10 +5,10 @@
 выполняется без интерфейса:
 
 ```powershell
-scene-editor generate recipe.yaml                 # сохранить в output рецепта
-scene-editor generate recipe.yaml --output D:\out # сохранить в другую папку
-scene-editor generate recipe.yaml --dry-run       # всё построить и проверить, ничего не записывать
-scene-editor verify D:\out --data D:\datasets\main_flow
+ir-line-synth generate recipe.yaml                 # сохранить в output рецепта
+ir-line-synth generate recipe.yaml --output D:\out # сохранить в другую папку
+ir-line-synth generate recipe.yaml --dry-run       # всё построить и проверить, ничего не записывать
+ir-line-synth verify D:\out --data D:\datasets\main_flow
 ```
 
 Правила сцен и лент — те же, что отправляет страница (автогенератор и лента), поэтому работу, сделанную в

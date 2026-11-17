@@ -10,9 +10,9 @@ import unittest
 import numpy as np
 from PIL import Image
 
-from scene_editor.dataset import load_data_description, open_split, read_yolo_boxes, scale_boxes, frame_geometry
-from scene_editor.sensor import FrameGeometry
-from scene_editor.web.views import EditorViews
+from ir_line_synth.dataset import load_data_description, open_split, read_yolo_boxes, scale_boxes, frame_geometry
+from ir_line_synth.sensor import FrameGeometry
+from ir_line_synth.web.views import EditorViews
 from test_morph import draw_egg
 
 

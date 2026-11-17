@@ -6,4 +6,4 @@ generated backgrounds. Every output records how it was made and renders again fr
 """
 
 __version__ = "0.2.0"
-PROGRAM = "scene-editor"
+PROGRAM = "ir-line-synth"
