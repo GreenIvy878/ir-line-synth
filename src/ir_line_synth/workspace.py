@@ -119,6 +119,10 @@ class Workspace:
                 self.datasets[split] = open_split(self.data, split, self.geometry)
             return self.datasets[split]
 
+    def frame_ids(self, split):
+        """File names of the real frames of `split`: the ids a "real" background is drawn from."""
+        return [path.name for path in self.dataset(split).paths]
+
     def source(self, reference):
         if not isinstance(reference, dict):
             raise ValueError("Choose a source/background image")

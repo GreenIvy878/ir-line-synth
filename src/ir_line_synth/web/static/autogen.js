@@ -28,12 +28,7 @@ function openAutogenerator() {
   const ui=autogenUI,dialog=$('autogen-dialog');
   if(!ui.busy) {
     const previousCount=ui.pool.length;
-    ui.pool=syntheticUI.objectBank.map(object=>{
-      const entry={source:synCopy(object.source),box_index:object.box_index,transform:synCopy(object.transform)};
-      if(object.morph)entry.morph=synCopy(object.morph);
-      if(object.clipped)entry.clipped=true;
-      return entry;
-    });
+    ui.pool=synBankEntries();
     for(let index=previousCount;index<ui.pool.length;index++)ui.poolSelected.add(index);
     ui.background=synCopy(syntheticUI.scene.background);
     if(!ui.initialized&&ui.background?.split)ui.rules.split=ui.background.split;
@@ -128,7 +123,7 @@ function renderAutogenerator() {
     node.onchange=()=>{autogenReadRules();autogenBackgroundInfo();if(id==='auto-split')autogenPool();autogenControls();};
   }
   $('auto-close').onclick=()=>$('autogen-dialog').close();
-  $('auto-editor').onclick=()=>{$('autogen-dialog').close();setSection('Synthetic Editor');};
+  $('auto-editor').onclick=()=>{$('autogen-dialog').close();renderSyntheticEditor();};
   $('auto-generate').onclick=()=>autogenAction(generateAutogenPreviews);
   $('auto-save').onclick=()=>autogenAction(saveAutogenSelection);
   $('auto-select-all').onclick=()=>{ui.selected=new Set(ui.candidates.map((_,index)=>index).filter(index=>!ui.saved.has(index)));autogenSelection();};

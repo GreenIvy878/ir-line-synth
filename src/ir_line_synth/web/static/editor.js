@@ -25,7 +25,7 @@ const synOnlySplit = preview => preview?.splits?.length===1?preview.splits[0]:nu
 const synBackgroundLabel = background => !background?'не выбран':background.generated?`сгенерированный (seed ${background.generated.seed}, каналы из ${background.split})`:`${background.split} / ${background.id}`;
 const synCopy = value => JSON.parse(JSON.stringify(value));
 const synPost = (path,body) => request(`/api/synthetic/${path}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-const synMounted = () => section==='Synthetic Editor' && !!$('synthetic-editor');
+const synMounted = () => !!$('synthetic-editor');
 const synTransformFields = [
   ['syn-flip-x','flip_x'],['syn-flip-y','flip_y'],['syn-use-mask','use_mask'],
   ['syn-brightness','brightness'],['syn-angle','angle'],['syn-scale','scale'],['syn-threshold','threshold'],
@@ -37,6 +37,13 @@ const synTransformFields = [
 const synDefaultTransform = () => ({flip_x:false,flip_y:false,brightness:1,angle:0,scale:1,use_mask:false,threshold:0.1,
   gamma:1,contrast:1,gradient:0,gradient_angle:0,noise:0,noise_seed:0,shade:0,shade_size:0.25,shade_x:0.5,shade_y:0.5,erode:0,erode_seed:0});
 const synActiveObject = () => syntheticUI.objectBank[syntheticUI.activeObject]||null;
+// The object bank as the pool of the autogenerator and of tapes.
+const synBankEntries = () => syntheticUI.objectBank.map(object=>{
+  const entry={source:synCopy(object.source),box_index:object.box_index,transform:synCopy(object.transform)};
+  if(object.morph)entry.morph=synCopy(object.morph);
+  if(object.clipped)entry.clipped=true;
+  return entry;
+});
 
 function synSyncTransformFields() {
   if(!synMounted())return;
@@ -88,8 +95,7 @@ async function renderSyntheticEditor() {
   if(!ui.catalog) {
     $('content').innerHTML='<h2>Synthetic Editor</h2><p id="syn-loading">Загрузка train / val…</p>';
     try {[ui.sensor,ui.catalog]=await Promise.all([request('/api/synthetic/sensor'),request('/api/synthetic/catalog')]);}
-    catch(error) {if(section==='Synthetic Editor') $('content').innerHTML=`<h2>Synthetic Editor</h2><p class="error">${esc(error.message)}</p>`;return;}
-    if(section!=='Synthetic Editor')return;
+    catch(error) {$('content').innerHTML=`<h2>Synthetic Editor</h2><p class="error">${esc(error.message)}</p>`;return;}
   }
   const bg=ui.scene.background;
   const transform=synActiveObject()?.transform||synDefaultTransform();

@@ -39,11 +39,11 @@ from pathlib import Path
 import numpy as np
 import yaml
 
-from . import PROGRAM, __version__, morph
+from . import morph
 from .dataset import load_data_description
 from .generator import generate_candidates
 from .scene import integer
-from .store import OUTPUT_SPLITS
+from .store import OUTPUT_SPLITS, program
 from .tape import generate_tape
 from .workspace import Workspace
 
@@ -159,12 +159,12 @@ def object_pool(workspace, recipe, notes):
     for index, item in enumerate(objects.get("generated", [])):
         batch = library.generate(item["kind"], item["count"], step_seed(seed, "generated", index),
                                  item.get("limits", {}), None, tuple(item.get("ratio", morph.BLOB_RATIO)))
-        chosen = [row for row in batch["candidates"]
-                  if item.get("accept", "filter") == "all" or row["filter"]["accepted"]]
+        filtered = item.get("accept", "filter") == "filter"
+        chosen = [row for row in batch["candidates"] if not filtered or row["filter"]["accepted"]]
         pool += [dict(source=row["source"], box_index=row["box_index"], transform={}, morph=row["morph"])
                  for row in chosen]
         notes.append(f"new objects {item['kind']}: {len(chosen)} of {len(batch['candidates'])} made "
-                     f"({'accepted by the filter' if item.get('accept', 'filter') == 'filter' else 'all'})")
+                     f"({'accepted by the filter' if filtered else 'all'})")
         notes += batch["notes"]
     if not pool:
         raise ValueError("The recipe gives no objects: no real object of these kinds, no new object accepted")
@@ -189,7 +189,7 @@ def run(path, output=None, dry_run=False, report=print):
     notes = []
     pool = object_pool(workspace, recipe, notes)
     report(f"Pool: {len(pool)} objects")
-    record = dict(program=dict(name=PROGRAM, version=__version__), recipe=recipe, recipe_sha256=digest,
+    record = dict(program=program(), recipe=recipe, recipe_sha256=digest,
                   recipe_file=str(Path(path).resolve()), data=str(data_path), geometry=workspace.geometry.payload(),
                   output=str(output), split=split, pool=len(pool), notes=notes, scenes=None, tapes=None,
                   started=datetime.now(timezone.utc).isoformat(timespec="seconds"))
@@ -203,11 +203,11 @@ def run(path, output=None, dry_run=False, report=print):
             if "background" not in recipe:
                 raise ValueError("background_mode fixed needs recipe.background: {id: <frame>}")
             background = dict(split=split, id=recipe["background"]["id"])
-        names = lambda part: [image.name for image in workspace.dataset(part).paths]
-        batch = generate_candidates(background, pool, rules, load, workspace.prepare, names, workspace.is_clipped)
+        batch = generate_candidates(background, pool, rules, load, workspace.prepare, workspace.frame_ids,
+                                    workspace.is_clipped)
         saved, skipped = [], []
         for candidate in batch["candidates"]:
-            rendered, preview = workspace.preview(candidate["scene"], load)
+            rendered, _ = workspace.preview(candidate["scene"], load)
             if dry_run:
                 continue
             try:

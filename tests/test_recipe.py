@@ -56,7 +56,7 @@ class RecipeTests(unittest.TestCase):
     def test_the_same_recipe_makes_the_same_data_and_records_the_run(self):
         path = self.recipe("same")
         first = run(path, self.root / "first", report=quiet)
-        second = run(path, self.root / "second", report=quiet)
+        run(path, self.root / "second", report=quiet)
         self.assertEqual(len(first["scenes"]["saved"]), 4)
         self.assertEqual(len(first["tapes"]), 1)
         self.assertEqual(self.digests(self.root / "first"), self.digests(self.root / "second"))

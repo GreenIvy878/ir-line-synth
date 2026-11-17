@@ -333,20 +333,28 @@ class RenderedScene:
     provenance: tuple
     added: int
 
+    def statistics(self):
+        return scene_statistics(self.boxes, self.added)
+
     def payload(self):
         return dict(matrix=self.pixels.tolist(), boxes_pixels_xyxy=self.boxes.tolist(),
-                    labels=list(self.labels), statistics=scene_statistics(self.boxes, self.added),
+                    labels=list(self.labels), statistics=self.statistics(),
                     train_eligible=all(item["split"] == "train" for item in self.provenance),
                     splits=source_splits(self.provenance))
+
+
+def blending_options(spec):
+    """(blending mode, maximum IoU) of a scene or tape description."""
+    mode = spec.get("blending", "replace")
+    if not isinstance(mode, str) or mode not in BLEND_MODES:
+        raise ValueError("blending must be replace, max or additive")
+    return mode, number(spec.get("max_iou", 0.15), "max_iou", 0, 1)
 
 
 def scene_options(spec):
     if not isinstance(spec, dict):
         raise ValueError("scene must be an object")
-    mode = spec.get("blending", "replace")
-    if not isinstance(mode, str) or mode not in BLEND_MODES:
-        raise ValueError("blending must be replace, max or additive")
-    threshold = number(spec.get("max_iou", 0.15), "max_iou", 0, 1)
+    mode, threshold = blending_options(spec)
     objects = spec.get("objects", [])
     if not isinstance(objects, list) or len(objects) > 128:
         raise ValueError("Expected at most 128 added objects")
@@ -404,7 +412,6 @@ def make_variation(spec, load_source, rng, options, attempts=VARIATION_ATTEMPTS,
     background = load_source(spec["background"])
     existing = list(background.boxes)
     for obj in variant["objects"]:
-        source = load_source(obj["source"])
         base = transform_options(obj.get("transform", {}))
         for _ in range(attempts):
             transform = dict(base)

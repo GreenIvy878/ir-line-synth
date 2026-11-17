@@ -28,7 +28,7 @@ import re
 
 import numpy as np
 
-from .sensor_model import FrameSpec, OperationNoise, Response, SensorModel, SensorNoise
+from .sensor_model import OperationNoise, Response, SensorModel, SensorNoise
 
 
 # Grid of the response fit: power and shift ranges, and the steps of the three passes.
@@ -75,11 +75,12 @@ def read_captures(path, clip):
     """Calibration captures from a folder of data_<mm>.csv files or from one long table."""
     path = Path(path)
     if path.is_dir():
-        files = sorted(path.glob("data_*.csv"), key=lambda item: float(item.stem.split("_", 1)[1]))
+        distance_of = lambda item: float(item.stem.split("_", 1)[1])
+        files = sorted(path.glob("data_*.csv"), key=distance_of)
         if not files:
             raise ValueError(f"{path}: no data_<mm>.csv files")
         nodes = [np.loadtxt(item, delimiter=",", skiprows=1, ndmin=2)[:, 1:] for item in files]
-        distances = [float(item.stem.split("_", 1)[1]) for item in files]
+        distances = [distance_of(item) for item in files]
     else:
         files = [path]
         table = np.genfromtxt(path, delimiter=",", names=True)
@@ -309,7 +310,7 @@ def fit_rhythm(belt):
     return period, share, lag1
 
 
-def operation_parameters(belt, boards, channels):
+def operation_parameters(belt):
     """The parameters of OperationNoise (without the belt level) from a Belt."""
     period, share, lag1 = fit_rhythm(belt)
     # The periodic part is common to the whole line, so it is common to every board too.
@@ -319,8 +320,7 @@ def operation_parameters(belt, boards, channels):
 
 def fit_operation(recordings, boards):
     belt = belt_statistics(recordings, boards)
-    parameters = operation_parameters(belt, boards, belt.levels.shape[1])
-    return OperationNoise(np.median(belt.levels, axis=0), **parameters)
+    return OperationNoise(np.median(belt.levels, axis=0), **operation_parameters(belt))
 
 
 # --------------------------------------------------------------------------- profile
@@ -347,7 +347,3 @@ def fit_profile(calibration, name, boards, adc_max, frames, recordings=None, rec
                                     sha256=digest(recording_files), polls=int(sum(len(r) for r in recordings)))
     return SensorModel(name, calibration.channels, boards, int(adc_max), response, noise, frames, operation,
                        None, source)
-
-
-def frame_spec(pool, length, normalize):
-    return FrameSpec(int(pool), int(length), normalize)

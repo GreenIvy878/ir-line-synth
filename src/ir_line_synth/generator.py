@@ -312,8 +312,7 @@ def random_scene(background_ref, background, pool, rules, rng, load_source, budg
                 failed[index] += 1
                 continue
             picker.take(state, index)
-            obj = dict(candidate, x=x, y=y)
-            scene["objects"].append(obj)
+            scene["objects"].append(dict(candidate, x=x, y=y))
             existing.append(box)
             placed = True
             break
@@ -354,7 +353,6 @@ def generate_candidates(background_ref, entries, options, load_source, prepare=p
     rejected = Counter()
     budget = [BATCH_BUDGET]
     attempts = 0
-    # Bounded whole-scene and placement retries keep impossible requests finite.
     while len(candidates) < rules["images"] and attempts < rules["images"] * SCENE_ATTEMPTS_PER_IMAGE and budget[0] > 0:
         attempts += 1
         try:

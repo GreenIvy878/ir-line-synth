@@ -10,6 +10,12 @@ from ..tape import generate_tape
 from ..workspace import Workspace
 
 
+def prepared_payload(prepared):
+    return dict(matrix=prepared.pixels.tolist(), mask=prepared.mask.tolist(),
+                width=prepared.width, height=prepared.height, label=prepared.label,
+                box=prepared.label_box().tolist())
+
+
 class EditorViews:
     def __init__(self, data):
         self.workspace = Workspace(data)
@@ -36,8 +42,7 @@ class EditorViews:
         if path == "/api/synthetic/generate":
             return generate_candidates(body.get("background"), body.get("pool"),
                                        body.get("rules", {}), self.workspace.source_loader(), self.workspace.prepare,
-                                       lambda split: [path.name for path in self.workspace.dataset(split).paths],
-                                       self.workspace.is_clipped)
+                                       self.workspace.frame_ids, self.workspace.is_clipped)
         if path.startswith("/api/synthetic/tape-"):
             return self.post_tape(path, body)
         if path == "/api/synthetic/morph-generate":
@@ -45,10 +50,7 @@ class EditorViews:
         if path == "/api/synthetic/generated-save":
             return self.save_generated(body)
         if path == "/api/synthetic/prepare":
-            prepared = self.workspace.prepare(body, self.workspace.source_loader())
-            return dict(matrix=prepared.pixels.tolist(), mask=prepared.mask.tolist(),
-                        width=prepared.width, height=prepared.height, label=prepared.label,
-                        box=prepared.label_box().tolist())
+            return prepared_payload(self.workspace.prepare(body, self.workspace.source_loader()))
         if path not in ("/api/synthetic/preview", "/api/synthetic/save", "/api/synthetic/variations"):
             raise ValueError("Unknown synthetic editor endpoint")
         spec = body.get("scene")
@@ -82,14 +84,10 @@ class EditorViews:
     def post_tape(self, path, body):
         load_source = self.workspace.source_loader()
         if path == "/api/synthetic/tape-prepare":
-            prepared = self.workspace.prepare_tape_object(body, load_source)
-            return dict(matrix=prepared.pixels.tolist(), mask=prepared.mask.tolist(),
-                        width=prepared.width, height=prepared.height, label=prepared.label,
-                        box=prepared.label_box().tolist())
+            return prepared_payload(self.workspace.prepare_tape_object(body, load_source))
         if path == "/api/synthetic/tape-generate":
             result = generate_tape(body.get("pool"), body.get("rules", {}), load_source, self.workspace.prepare_tape_object,
-                                   self.workspace.geometry.channels,
-                                   self.workspace.is_clipped)
+                                   self.workspace.geometry.channels, self.workspace.is_clipped)
             result["preview"] = self.workspace.render_tape(result["tape"], load_source).payload()
             return result
         if path not in ("/api/synthetic/tape-preview", "/api/synthetic/tape-save"):
@@ -102,8 +100,8 @@ class EditorViews:
         if body.get("expected_digest") != preview["digest"]:
             raise ValueError("The tape changed; refresh its preview before saving")
         return self.workspace.store.save_tape(body.get("directory"), body.get("split"), rendered, spec,
-                                    body.get("name") or None, body.get("values", "levels"),
-                                    body.get("header", False) is True)
+                                              body.get("name") or None, body.get("values", "levels"),
+                                              body.get("header", False) is True)
 
     def generate_objects(self, body):
         """New objects for review: replays of real objects with random imperfections.

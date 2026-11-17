@@ -34,12 +34,7 @@ function openTape() {
   const ui=tapeUI;
   if(!ui.busy) {
     const previous=ui.pool.length;
-    ui.pool=syntheticUI.objectBank.map(object=>{
-      const entry={source:synCopy(object.source),box_index:object.box_index,transform:synCopy(object.transform)};
-      if(object.morph)entry.morph=synCopy(object.morph);
-      if(object.clipped)entry.clipped=true;
-      return entry;
-    });
+    ui.pool=synBankEntries();
     for(let index=previous;index<ui.pool.length;index++)ui.poolSelected.add(index);
     for(const index of [...ui.poolSelected])if(index>=ui.pool.length)ui.poolSelected.delete(index);
     if(ui.addIndex>=ui.pool.length)ui.addIndex=-1;
@@ -50,7 +45,6 @@ function openTape() {
   }
   if(!$('tape-dialog').open)$('tape-dialog').showModal();
 }
-const tapeNumber=(id,label,value,min,max,step)=>synNumber(id,label,value,min,max,step);
 // The split of a tape: of the generated tape, else the one chosen in the rules.
 const tapeSplit = () => tapeUI.tapeSplit||tapeUI.rules.split;
 // Pool entries a tape of its split can take: of that split and not stubs cut by the frame edge.
@@ -69,43 +63,43 @@ function renderTape() {
     <div id="tape-pool" class="autogen-pool"></div>
     <div class="autogen-layout"><section class="card"><h3>Правила ленты</h3><div class="autogen-rules">
       <h4>Лента</h4>
-      ${tapeNumber('tape-length','Длина, строк',r.length,40,20000,10)}
-      ${tapeNumber('tape-objects','Количество объектов',r.objects,0,1000,1)}
+      ${synNumber('tape-length','Длина, строк',r.length,40,20000,10)}
+      ${synNumber('tape-objects','Количество объектов',r.objects,0,1000,1)}
       <label>Функция расположения <select id="tape-layout">${Object.entries(tapeLayouts).map(([key,name])=>`<option value="${key}">${name}</option>`).join('')}</select></label>
-      ${tapeNumber('tape-jitter','Разброс (доля полушага)',r.jitter,0,1,0.05)}
-      ${tapeNumber('tape-cluster-min','Группа от, объектов',r.cluster_min,1,64,1)}
-      ${tapeNumber('tape-cluster-max','Группа до, объектов',r.cluster_max,1,64,1)}
-      ${tapeNumber('tape-cluster-spread','Разброс группы ± строк',r.cluster_spread,0,200,1)}
-      ${tapeNumber('tape-seed','Seed',r.seed,0,4294967295,1)}
+      ${synNumber('tape-jitter','Разброс (доля полушага)',r.jitter,0,1,0.05)}
+      ${synNumber('tape-cluster-min','Группа от, объектов',r.cluster_min,1,64,1)}
+      ${synNumber('tape-cluster-max','Группа до, объектов',r.cluster_max,1,64,1)}
+      ${synNumber('tape-cluster-spread','Разброс группы ± строк',r.cluster_spread,0,200,1)}
+      ${synNumber('tape-seed','Seed',r.seed,0,4294967295,1)}
       <label>Часть набора <select id="tape-split">${synSplitOptions()}</select></label>
       <p class="muted">Объекты, пустые каналы фона и сохранение — только из этой части. Проверочная лента — из test.</p>
       <h4>Фон</h4>
       <label>Фон ленты <select id="tape-bg"><option value="generated">Из пустых каналов реальных кадров</option><option value="blank">Пустой (нули)</option></select></label>
-      ${tapeNumber('tape-bg-block-min','Каналов в блоке от',r.background_block_min,1,synSensor().channels,1)}
-      ${tapeNumber('tape-bg-block-max','Каналов в блоке до',r.background_block_max,1,synSensor().channels,1)}
-      ${tapeNumber('tape-bg-level-min','Уровень фона × от',r.background_level_min,0,3,0.05)}
-      ${tapeNumber('tape-bg-level-max','Уровень фона × до',r.background_level_max,0,3,0.05)}
+      ${synNumber('tape-bg-block-min','Каналов в блоке от',r.background_block_min,1,synSensor().channels,1)}
+      ${synNumber('tape-bg-block-max','Каналов в блоке до',r.background_block_max,1,synSensor().channels,1)}
+      ${synNumber('tape-bg-level-min','Уровень фона × от',r.background_level_min,0,3,0.05)}
+      ${synNumber('tape-bg-level-max','Уровень фона × до',r.background_level_max,0,3,0.05)}
       <h4>Объекты</h4>
       <p class="muted">Объекты набора берутся по очереди, сначала неиспользованные: повторы появляются, только когда на ленте больше объектов, чем в выбранном наборе.</p>
       <label>Новые несовершенства на каждую вставку <input id="tape-reseed" type="checkbox"></label>
       <label>Случайное отражение по X <input id="tape-flip-x" type="checkbox"></label>
       <label>Случайное отражение по Y <input id="tape-flip-y" type="checkbox"></label>
-      ${tapeNumber('tape-angle','Поворот ± °',r.rotation_degrees,0,180,1)}
-      ${tapeNumber('tape-bright-min','Яркость × от',r.brightness_min,0,4,0.05)}
-      ${tapeNumber('tape-bright-max','Яркость × до',r.brightness_max,0,4,0.05)}
-      ${tapeNumber('tape-noise','Шум пикселей до',r.noise_max,0,1,0.01)}
-      ${tapeNumber('tape-erode','Выедание краёв до',r.erode_max,0,1,0.05)}
+      ${synNumber('tape-angle','Поворот ± °',r.rotation_degrees,0,180,1)}
+      ${synNumber('tape-bright-min','Яркость × от',r.brightness_min,0,4,0.05)}
+      ${synNumber('tape-bright-max','Яркость × до',r.brightness_max,0,4,0.05)}
+      ${synNumber('tape-noise','Шум пикселей до',r.noise_max,0,1,0.01)}
+      ${synNumber('tape-erode','Выедание краёв до',r.erode_max,0,1,0.05)}
       <label>Перенос <select id="tape-insertion"><option value="box">Весь бокс</option><option value="mask">Маска объекта</option></select></label>
       <label>Края вставки <select id="tape-edges"><option value="hard">Обычная вставка</option><option value="blur">Блюр краёв</option></select></label>
-      ${tapeNumber('tape-blur','Радиус блюра, px',r.blur_radius,0.1,3,0.1)}
+      ${synNumber('tape-blur','Радиус блюра, px',r.blur_radius,0.1,3,0.1)}
       <label>Наложение <select id="tape-blend"><option value="replace">Replace</option><option value="max">Max blending</option><option value="additive">Additive blending</option></select></label>
-      ${tapeNumber('tape-iou','Макс. IoU',r.max_iou,0,1,0.01)}
+      ${synNumber('tape-iou','Макс. IoU',r.max_iou,0,1,0.01)}
       <button id="tape-generate" class="primary">Сгенерировать ленту</button>
     </div><p>Если для объекта не нашлось свободного места, он пропускается: в сообщении будет указано, сколько размещено из заказанного. Объекты не пересекаются сильнее макс. IoU.</p></section>
     <section><h3>Лента</h3><div class="synthetic-fields tape-nav">
         <span id="tape-position" class="muted"></span>
-        ${tapeNumber('tape-rows','Окно, строк',ui.rows,20,100,5)}
-        ${tapeNumber('tape-goto','Перейти к строке',0,0,20000,1)}<button id="tape-go">Перейти</button></div>
+        ${synNumber('tape-rows','Окно, строк',ui.rows,20,100,5)}
+        ${synNumber('tape-goto','Перейти к строке',0,0,20000,1)}<button id="tape-go">Перейти</button></div>
       <div class="tape-view">
         <canvas id="tape-map" width="${2*synSensor().channels}" height="${tapeMapHeight}" class="tape-map" aria-label="Обзор всей ленты: клик переносит окно"></canvas>
         <canvas id="tape-main" class="tape-main" aria-label="Окно ленты: клик выбирает объект, перетаскивание перемещает"></canvas>
@@ -116,9 +110,9 @@ function renderTape() {
       <div class="synthetic-fields"><label>Добавить из набора <select id="tape-add-select"></select></label>
         <button id="tape-place">Разместить кликом</button><span id="tape-add-info" class="muted"></span></div>
       <div class="synthetic-toolbar"><button id="tape-undo">Undo</button><button id="tape-redo">Redo</button><button id="tape-delete">Удалить выбранный</button></div>
-      <div class="synthetic-fields">${tapeNumber('tape-x','X (канал)',0,0,39,1)}${tapeNumber('tape-y','Y (строка)',0,0,20000,1)}<button id="tape-position-apply">Применить координаты</button></div>
-      <div class="synthetic-fields">${tapeNumber('tape-bg-seed','Seed фона',0,0,4294967295,1)}<button id="tape-bg-new">Новый фон (seed + 1)</button>
-        ${tapeNumber('tape-edit-iou','Макс. IoU ленты',0.15,0,1,0.01)}</div>
+      <div class="synthetic-fields">${synNumber('tape-x','X (канал)',0,0,39,1)}${synNumber('tape-y','Y (строка)',0,0,20000,1)}<button id="tape-position-apply">Применить координаты</button></div>
+      <div class="synthetic-fields">${synNumber('tape-bg-seed','Seed фона',0,0,4294967295,1)}<button id="tape-bg-new">Новый фон (seed + 1)</button>
+        ${synNumber('tape-edit-iou','Макс. IoU ленты',0.15,0,1,0.01)}</div>
       <p>Клик по объекту выделяет его, перетаскивание перемещает; колесо мыши и миникарта листают ленту. Объекты не могут пересекаться сильнее макс. IoU и выходить за ленту.</p>
     </section></div>
     <div class="autogen-save"><div class="synthetic-fields">

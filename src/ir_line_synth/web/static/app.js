@@ -2,9 +2,6 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-// The editor scripts check which page section is open; this page has only the editor.
-const section = 'Synthetic Editor';
-function setSection() { renderSyntheticEditor(); }
 async function request(url, options) {
   let response;
   // fetch rejects only when no answer arrived at all; the browser's own text for that is "Failed to fetch".

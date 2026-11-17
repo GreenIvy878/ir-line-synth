@@ -14,7 +14,7 @@ from ir_line_synth.background import BackgroundBank, background_options
 from ir_line_synth.dataset import load_data_description, open_split, read_yolo_boxes
 from ir_line_synth.scene import PreparedObject, SourceImage, check_placement, render_scene
 from ir_line_synth.web.views import EditorViews
-from test_morph import draw_egg, kinds_frame, still
+from test_morph import kinds_frame, still
 
 
 def write_kinds_dataset(root, frames=8, splits=("train", "val")):

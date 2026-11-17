@@ -598,8 +598,6 @@ def judge(layer, kind, stats, source_layer=None, blob_ratio=BLOB_RATIO):
     ``unlike_real`` (no real object of this kind nearby in feature space);
     ``copy`` (same shape as the source up to a resize: only scaled, nothing new).
     """
-    if layer.size == 0:
-        return False, "empty", None
     features = describe(layer)
     if features is None:
         return False, "empty", None
@@ -832,8 +830,8 @@ class Library:
         return cls(split, frames.sensor_axis, objects, fit_statistics(objects))
 
     def counts(self):
-        whole = [o for o in self.objects if not o.clipped]
-        return {kind: sum(o.kind == kind for o in whole) for kind in KINDS}
+        """Whole (not clipped) real objects of every kind."""
+        return dict(self.stats["kinds"])
 
     def find(self, identifier, box_index):
         return next((o for o in self.objects if o.source == identifier and o.box_index == box_index), None)

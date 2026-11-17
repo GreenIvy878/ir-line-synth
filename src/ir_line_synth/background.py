@@ -89,10 +89,8 @@ class BackgroundBank:
                 pixels, boxes = pixels.T, boxes[:, [1, 0, 3, 2]]
             occupied = np.zeros(pixels.shape, bool)
             for x1, y1, x2, y2 in boxes:
-                # A margin: the soft edge of an object lies outside its box.
-                m = OBJECT_MARGIN
-                occupied[max(0, int(np.floor(y1)) - m):int(np.ceil(y2)) + m,
-                         max(0, int(np.floor(x1)) - m):int(np.ceil(x2)) + m] = True
+                occupied[max(0, int(np.floor(y1)) - OBJECT_MARGIN):int(np.ceil(y2)) + OBJECT_MARGIN,
+                         max(0, int(np.floor(x1)) - OBJECT_MARGIN):int(np.ceil(x2)) + OBJECT_MARGIN] = True
             stack.append(pixels.astype(np.float32))
             free.append(occupied)
         self.frames = np.stack(stack)  # [frames, polls, channels]

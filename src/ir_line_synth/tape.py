@@ -19,9 +19,9 @@ import io
 import numpy as np
 
 from .background import DEFAULTS as BACKGROUND_DEFAULTS, background_options
-from .generator import ObjectPicker, generator_options, object_pool, random_object
+from .generator import ObjectPicker, choose_background, generator_options, object_pool, random_object
 from .scene import (
-    BLEND_MODES, LEVELS, PreparedObject, integer, number, object_provenance, paste_object,
+    LEVELS, PreparedObject, blending_options, integer, number, object_provenance, paste_object,
     pixel_levels, placement_box, source_splits, validate_boxes,
 )
 
@@ -92,10 +92,7 @@ def tape_options(spec):
     if not isinstance(spec, dict):
         raise ValueError("tape must be an object")
     length = integer(spec.get("length"), "length", MIN_LENGTH, MAX_LENGTH)
-    mode = spec.get("blending", "replace")
-    if not isinstance(mode, str) or mode not in BLEND_MODES:
-        raise ValueError("blending must be replace, max or additive")
-    threshold = number(spec.get("max_iou", 0.15), "max_iou", 0, 1)
+    mode, threshold = blending_options(spec)
     objects = spec.get("objects", [])
     if not isinstance(objects, list) or len(objects) > MAX_OBJECTS:
         raise ValueError(f"Expected at most {MAX_OBJECTS} objects on a tape")
@@ -143,12 +140,16 @@ class RenderedTape:
     def digest(self):
         return tape_digest(self.levels, self.boxes, self.labels)
 
+    def statistics(self):
+        length, channels = (int(value) for value in self.levels.shape)
+        return tape_statistics(self.boxes, length, channels)
+
     def payload(self):
         length, channels = (int(value) for value in self.levels.shape)
         return dict(length=length, channels=channels,
                     levels_base64=base64.b64encode(self.levels.tobytes()).decode("ascii"),
                     boxes_pixels_xyxy=self.boxes.tolist(), labels=list(self.labels),
-                    statistics=tape_statistics(self.boxes, length, channels),
+                    statistics=self.statistics(),
                     train_eligible=all(item["split"] == "train" for item in self.provenance),
                     splits=source_splits(self.provenance), digest=self.digest)
 
@@ -282,12 +283,9 @@ def generate_tape(entries, options, load_source, prepare, channels, is_clipped=N
     if rules["background"] == "blank":
         background = dict(kind="blank")
     else:
-        level = generator["background_level_min"]
-        if generator["background_level_max"] > level:
-            level = float(rng.uniform(level, generator["background_level_max"]))
-        background = dict(kind="generated", split=generator["split"], seed=int(rng.integers(2**32)),
-                          block_min=generator["background_block_min"], block_max=generator["background_block_max"],
-                          level=level, roll=True)
+        # FIXED_RULES set background_mode "generated", so this is a generated background reference.
+        reference = choose_background(None, generator, rng, None)
+        background = dict(kind="generated", split=reference["split"], **reference["generated"])
     length = rules["length"]
     boxes, objects, rejected, budget = BoxSet(), [], Counter(), BUDGET
     for target in LAYOUTS[rules["layout"]](rules, rng):

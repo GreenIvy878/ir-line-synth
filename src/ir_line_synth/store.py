@@ -18,7 +18,7 @@ import numpy as np
 from PIL import Image
 import yaml
 
-from .dataset import IMAGE_EXTENSIONS, parse_yolo_box
+from .dataset import IMAGE_EXTENSIONS, SPLIT_OPTIONS, parse_yolo_box
 from . import PROGRAM, __version__
 from .scene import LEVELS, pixel_levels
 
@@ -87,12 +87,28 @@ def exclusive_write(path, payload, created):
         stream.write(payload)
 
 
+def write_new_files(files):
+    """Write {path: bytes}, none of which may exist yet; on a failure remove what was written."""
+    created = []
+    try:
+        for path, payload in files.items():
+            exclusive_write(path, payload, created)
+    except (OSError, ValueError):
+        for path in reversed(created):
+            path.unlink(missing_ok=True)
+        raise
+
+
+def provenance_bytes(metadata):
+    return json.dumps(metadata, allow_nan=False, indent=2).encode("utf-8")
+
+
 class SyntheticStore:
     def __init__(self, data, details=None):
         self.axis = data["sensor_axis"]
         # details(row) -> the provenance row as written (the editor adds what it knows of a source).
         self.details = details or dict
-        self.protected = [Path(data[key]).resolve() for key in ("train", "val", "test") if key in data]
+        self.protected = [Path(data[key]).resolve() for key in SPLIT_OPTIONS if key in data]
 
     def output_root(self, directory):
         """The requested output folder, once it is known to lie outside every source dataset."""
@@ -169,18 +185,11 @@ class SyntheticStore:
             image_path = root / split / "images" / f"{name}.png"
             labels_path = root / split / "labels" / f"{name}.txt"
             provenance_path = root / split / "provenance" / f"{name}.json"
-            metadata = dict(program=program(), digest=digest, sources=[self.details(row) for row in rendered.provenance], scene=scene,
-                            statistics=rendered.payload()["statistics"], output_split=split)
-            created = []
-            try:
-                exclusive_write(image_path, buffer.getvalue(), created)
-                labels = yolo_text(rendered.boxes, rendered.labels, rendered.pixels.shape)
-                exclusive_write(labels_path, labels.encode("utf-8"), created)
-                exclusive_write(provenance_path, json.dumps(metadata, allow_nan=False, indent=2).encode("utf-8"), created)
-            except (OSError, ValueError):
-                for path in reversed(created):
-                    path.unlink(missing_ok=True)
-                raise
+            metadata = dict(program=program(), digest=digest, sources=[self.details(row) for row in rendered.provenance],
+                            scene=scene, statistics=rendered.statistics(), output_split=split)
+            labels = yolo_text(rendered.boxes, rendered.labels, rendered.pixels.shape)
+            write_new_files({image_path: buffer.getvalue(), labels_path: labels.encode("utf-8"),
+                             provenance_path: provenance_bytes(metadata)})
         return dict(image=str(image_path), annotations=str(labels_path), provenance=str(provenance_path), digest=digest)
 
     def save_tape(self, directory, split, rendered, spec, name=None, values="levels", header=False):
@@ -215,15 +224,7 @@ class SyntheticStore:
                 length=int(rendered.levels.shape[0]), channels=int(rendered.levels.shape[1]), values=values,
                 scale=float(LEVELS) if values == "levels" else 1.0, header=bool(header),
                 files=dict(signal=signal_path.name, labels=labels_path.name),
-                statistics=rendered.payload()["statistics"],
+                statistics=rendered.statistics(),
                 sources=[self.details(row) for row in rendered.provenance], tape=spec)
-            created = []
-            try:
-                exclusive_write(signal_path, signal, created)
-                exclusive_write(labels_path, labels, created)
-                exclusive_write(provenance_path, json.dumps(metadata, allow_nan=False, indent=2).encode("utf-8"), created)
-            except (OSError, ValueError):
-                for path in reversed(created):
-                    path.unlink(missing_ok=True)
-                raise
+            write_new_files({signal_path: signal, labels_path: labels, provenance_path: provenance_bytes(metadata)})
         return dict(signal=str(signal_path), labels=str(labels_path), provenance=str(provenance_path), digest=digest)

@@ -103,10 +103,9 @@ def frame_geometry(data: dict) -> FrameGeometry:
     if channels is None or length is None:
         first = None
         for split in SPLIT_OPTIONS:
-            if split in data:
-                folder = Path(data[split]) / "images"
-                first = next(iter(find_images(folder)), None) if folder.is_dir() else None
-            if first is not None:
+            folder = Path(data[split]) / "images" if split in data else None
+            if folder is not None and folder.is_dir():
+                first = find_images(folder)[0]
                 break
         if first is None:
             raise ValueError("No frames to learn the frame geometry from; give data.channels and data.frame_length")

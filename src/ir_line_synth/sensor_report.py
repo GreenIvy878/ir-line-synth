@@ -115,7 +115,7 @@ def check_operation(recordings, numbers, boards, model):
         part = [polls for polls, number in zip(recordings, numbers) if number % 2 == parity]
         if part:
             belt = belt_statistics(part, boards)
-            halves[name] = dict(recordings=len(part), **operation_parameters(belt, boards, model.channels))
+            halves[name] = dict(recordings=len(part), **operation_parameters(belt))
     belt = belt_statistics(recordings, boards)
     lags = {lag: dict(measured=belt.autocorrelation(lag), model=model.operation.autocorrelation(lag)) for lag in LAGS}
     return dict(halves=halves, lags=lags, runs=len(belt.runs), polls=int(sum(len(run) for run in belt.runs)),
