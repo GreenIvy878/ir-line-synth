@@ -24,7 +24,9 @@ import math
 
 import numpy as np
 
+from . import motion
 from .dataset import scale_boxes
+from .motion import KINDS, LineScale
 from .scene import PreparedObject, integer, number, transform_crop, transform_options
 from .sensor import MAX_CHANNELS
 
@@ -32,7 +34,6 @@ from .sensor import MAX_CHANNELS
 TAU = 0.1  # object/background threshold (99 % of background pixels lie below 0.086)
 # Replayed and imperfect objects: values below this are interpolation tails and are set to 0.
 SIGNAL_FLOOR = 0.012
-KINDS = ("blob", "rolling", "swinging", "long", "short")
 # Real kinds a new object of each kind may be built from.
 SOURCE_KINDS = {
     "blob": ("blob", "long", "short"),
@@ -163,7 +164,8 @@ def describe(layer):
     )
 
 
-# Thresholds of the kind of an object (classify), in channels and polls of the reference line.
+# Thresholds of the kind of an object (classify), in channels and rows of the reference line
+# (motion.REFERENCE_PITCH_MM, motion.REFERENCE_ROW_MS); classify turns them into those of the line.
 SWINGING_MIN_LENGTH = 5     # polls: a wiggle is judged only on a trace at least this long
 SWINGING_WIGGLE = 0.55      # channels: std of the lateral track around its quadratic fit
 ROLLING_EXCURSION = 2.5     # channels: lateral travel of the track over the passage
@@ -172,16 +174,16 @@ LONG_LENGTH = 11            # polls
 SHORT_LENGTH = 4            # polls
 
 
-def classify(features):
-    """Heuristic kind of an object from its shape features (see the module docstring)."""
-    f = features
-    if f["components"] >= 2 or f["gaps"] >= 1 or (f["h"] >= SWINGING_MIN_LENGTH and f["wiggle"] >= SWINGING_WIGGLE):
+def classify(features, scale=LineScale()):
+    """Heuristic kind of an object from its shape features (see the module docstring), on a line of `scale`."""
+    f, T, S = features, scale.time, scale.space
+    if f["components"] >= 2 or f["gaps"] >= 1 or (f["h"] >= SWINGING_MIN_LENGTH * T and f["wiggle"] >= SWINGING_WIGGLE * S):
         return "swinging"
-    if f["excursion"] >= ROLLING_EXCURSION or f["w"] >= ROLLING_WIDTH:
+    if f["excursion"] >= ROLLING_EXCURSION * S or f["w"] >= ROLLING_WIDTH * S:
         return "rolling"
-    if f["h"] >= LONG_LENGTH:
+    if f["h"] >= LONG_LENGTH * T:
         return "long"
-    if f["h"] <= SHORT_LENGTH:
+    if f["h"] <= SHORT_LENGTH * T:
         return "short"
     return "blob"
 
@@ -226,7 +228,7 @@ def is_clipped(box, strong, offset, shape):
     return bool(ys.min() == 0 or xs.min() == 0 or ys.max() == shape[0] - 1 or xs.max() == shape[1] - 1)
 
 
-def cut_object(pixels, boxes, index, source="", split="train", margin=1):
+def cut_object(pixels, boxes, index, source="", split="train", margin=1, scale=LineScale()):
     """Cut box `index` from a time-major frame; other objects' pixels are left out."""
     # One precision for every caller, so the same box always cuts the same pixels.
     boxes = np.asarray(boxes, np.float64)
@@ -257,7 +259,7 @@ def cut_object(pixels, boxes, index, source="", split="train", margin=1):
     track, t0 = lateral_track(layer)
     local_box = np.asarray([box[0] - x1, box[1] - y1, box[2] - x1, box[3] - y1], np.float32)
     clipped = is_clipped(box, layer >= TAU, (y1, x1), pixels.shape)
-    return RealObject(layer, local_box, source, index, split, features, classify(features),
+    return RealObject(layer, local_box, source, index, split, features, classify(features, scale),
                       track, t0, clipped)
 
 
@@ -268,15 +270,15 @@ def time_major(pixels, boxes, sensor_axis):
     return pixels.T.copy(), boxes[:, [1, 0, 3, 2]]
 
 
-def extract_objects(frames, split="train"):
-    """All usable objects of a dataset.FrameSet, with kind and features."""
+def extract_objects(frames, split="train", scale=LineScale()):
+    """All usable objects of a dataset.FrameSet, with kind and features (on a line of `scale`)."""
     objects = []
     for index in range(len(frames)):
         pixels = frames.pixels(index)
         boxes = scale_boxes(frames.boxes[index], pixels.shape)
         pixels, boxes = time_major(pixels, boxes, frames.sensor_axis)
         for box_index in range(len(boxes)):
-            obj = cut_object(np.clip(pixels, 0, 1), boxes, box_index, frames.paths[index].name, split)
+            obj = cut_object(np.clip(pixels, 0, 1), boxes, box_index, frames.paths[index].name, split, scale=scale)
             if obj is not None:
                 objects.append(obj)
     return objects
@@ -372,95 +374,14 @@ def texture_profile(layers):
 
 # -------------------------------------------------------------------------- motion
 
-def smooth_noise(rng, length, correlation, size=1.0):
-    """Zero-mean noise with a correlation length in samples."""
-    if length <= 0:
-        return np.zeros(0, np.float32)
-    raw = rng.standard_normal(length + 6 * max(1, int(correlation)))
-    sigma = max(correlation, 0.3)
-    radius = max(1, math.ceil(3 * sigma))
-    kernel = np.exp(-0.5 * (np.arange(-radius, radius + 1) / sigma) ** 2)
-    kernel /= np.sqrt((kernel ** 2).sum())
-    noise = np.convolve(raw, kernel, mode="same")[3 * max(1, int(correlation)):][:length]
-    return (size * noise).astype(np.float32)
-
-
 def output_times(obj, speed):
-    """Source rows sampled by each output row for a speed profile over the source span.
-
-    `speed` holds source rows per output row at evenly spaced points of the span
-    (with one row of margin either side); 0.5 replays the egg twice as slowly.
-    """
-    grid = np.linspace(obj.track_start - 1.0, obj.track_start + len(obj.track), 64)
-    v = np.interp(np.linspace(0, 1, len(grid)), np.linspace(0, 1, len(speed)), speed)
-    elapsed = np.concatenate([[0], np.cumsum(np.diff(grid) * 2 / (v[1:] + v[:-1]))])
-    # The tolerance keeps the length stable against rounding of the speeds.
-    count = max(1, int(math.ceil(elapsed[-1] - 1e-6)) + 1)
-    return np.interp(np.arange(count, dtype=np.float32), elapsed, grid).astype(np.float32)
+    """Source rows sampled by each output row for a speed profile over the source span (motion.py)."""
+    return motion.output_times(obj.track_start, len(obj.track), speed)
 
 
-def sample_motion(kind, obj, rng):
-    """Random motion parameters that turn `obj` into an object of `kind` (JSON-friendly)."""
-    log_uniform = lambda low, high: float(math.exp(rng.uniform(math.log(low), math.log(high))))
-    params = dict(kind=kind, flip=bool(rng.random() < 0.5), own=1.0,
-                  width=float(rng.uniform(0.92, 1.1)), brightness=float(rng.uniform(0.85, 1.12)))
-    # Speed is chosen for a target duration (height in rows) of the replayed object.
-    h = obj.features["h"]
-    target = {"blob": float(np.clip(h * log_uniform(0.8, 1.25), 5, 10)),
-              "long": rng.uniform(11, 16), "short": rng.uniform(2.6, 4.4),
-              "rolling": float(np.clip(h * log_uniform(0.7, 1.4), 3, 14)),
-              "swinging": float(np.clip(h * log_uniform(1.0, 1.6), 6, 15))}[kind]
-    speed = (h / target) * np.exp(smooth_noise(rng, 8, 2, 0.12))
-    if kind == "long" and rng.random() < 0.4:
-        # The egg stalls for a while: the same cross-section is polled many times.
-        at = rng.integers(1, 7)
-        speed[at:at + 2] *= rng.uniform(0.4, 0.7)
-    # Rounded before use, so a replay from the JSON parameters is exactly this one.
-    speed = np.round(speed, 4)
-    params["speed"] = speed.tolist()
-    times = output_times(obj, speed)
-    n = len(times)
-    t = np.arange(n, dtype=np.float32)
-
-    lateral = smooth_noise(rng, n, 4, 0.15)
-    gain = 1 + smooth_noise(rng, n, 3, 0.05)
-    if kind in ("blob", "long", "short"):
-        params["own"] = float(rng.uniform(0.5, 1.15))
-        lateral += float(rng.uniform(-0.12, 0.12)) * (t - n / 2)
-    elif kind == "rolling":
-        # Sideways speed in sensors per poll: constant, a turn from one speed to
-        # another (hooks: the egg starts or stops rolling) or a steady change (arcs).
-        sign = rng.choice([-1, 1])
-        first, second = sign * rng.uniform(0.3, 1.6), sign * rng.uniform(0.3, 1.6)
-        mode = str(rng.choice(["straight", "turn", "arc"], p=[0.3, 0.45, 0.25]))
-        if mode == "straight":
-            drift = np.full(n, first, np.float32)
-        elif mode == "turn":
-            if rng.random() < 0.6:
-                first = rng.uniform(-0.15, 0.15)  # still before the turn
-            at, width = rng.uniform(0.25, 0.75) * n, rng.uniform(0.5, 2)
-            drift = first + (second - first) / (1 + np.exp(-(t - at) / width))
-        else:
-            drift = first + (second * rng.choice([-1, 1]) - first) * t / max(n - 1, 1)
-        drift = drift + smooth_noise(rng, n, 3, 0.1)
-        lateral += np.cumsum(drift) - drift.sum() / 2
-        params["mode"] = mode
-        params["own"] = float(rng.uniform(0.7, 1.3)) if obj.kind == "rolling" else 1.0
-    elif kind == "swinging":
-        # One or two swings over the passage, a thinner trace and lost contact.
-        amplitude = rng.uniform(0.7, 2.0)
-        period = n / rng.uniform(0.7, 2.0)
-        params["width"] = float(rng.uniform(0.7, 0.95))
-        lateral += amplitude * np.sin(2 * np.pi * t / period + rng.uniform(0, 2 * np.pi))
-        # Rocking: contact (and signal) varies with the swing; some polls lose it.
-        gain *= 1 - rng.uniform(0, 0.35) * (0.5 + 0.5 * np.sin(2 * np.pi * t / period + rng.uniform(0, 2 * np.pi)))
-        for _ in range(rng.integers(0, 3)):
-            at, length = int(rng.integers(1, max(2, n - 1))), int(rng.integers(1, 3))
-            gain[at:at + length] *= rng.uniform(0.0, 0.3)
-        params["own"] = float(rng.uniform(0.5, 1.3)) if obj.kind == "swinging" else 1.0
-    params["lateral"] = np.round(lateral.astype(float), 4).tolist()
-    params["gain"] = np.round(np.clip(gain, 0, 1.3).astype(float), 4).tolist()
-    return params
+def sample_motion(kind, obj, rng, scale=LineScale()):
+    """Random motion parameters that turn `obj` into an object of `kind` (motion.sample) on a line of `scale`."""
+    return motion.sample(kind, obj.features["h"], (obj.track_start, len(obj.track)), rng, obj.kind, scale)
 
 
 def render(obj, params, texture=None, rng=None):
@@ -588,7 +509,7 @@ NEAREST_FACTOR = 1.5
 COPY_SIMILARITY = 0.97
 
 
-def judge(layer, kind, stats, source_layer=None, blob_ratio=BLOB_RATIO):
+def judge(layer, kind, stats, source_layer=None, blob_ratio=BLOB_RATIO, scale=LineScale()):
     """(accepted, reason, features) for a replayed object.
 
     Reasons: ``empty``; ``ratio`` (a blob whose length to width is outside `blob_ratio`);
@@ -604,8 +525,8 @@ def judge(layer, kind, stats, source_layer=None, blob_ratio=BLOB_RATIO):
     problem = shape_problem(features, layer, kind, blob_ratio)
     if problem:
         return False, problem, features
-    if classify(features) != kind:
-        return False, "kind:" + classify(features), features
+    if classify(features, scale) != kind:
+        return False, "kind:" + classify(features, scale), features
     real = stats["by_kind"].get(kind)
     if real is None:  # too few real objects of this kind to compare with
         return True, "ok", features
@@ -689,6 +610,9 @@ def imperfect(layer, options):
     - dropout: single pixels lose part of their signal;
     - noise: signal-dependent pixel noise.
     Every effect has its own random stream, so changing one leaves the others as they were.
+
+    Stages of the signal (docs/synthetic_data_method.md, section 8.1): hotspot and dropout -
+    surface (tilt, lost reflection); stripes and noise - sensor (channel gains, sensor noise).
     """
     options = imperfection_options(options)
     out = layer.astype(np.float32).copy()
@@ -821,13 +745,14 @@ class Library:
     sensor_axis: str
     objects: list
     stats: dict
+    scale: LineScale = LineScale()
 
     @classmethod
-    def build(cls, frames, split):
-        objects = extract_objects(frames, split)
+    def build(cls, frames, split, scale=LineScale()):
+        objects = extract_objects(frames, split, scale)
         if not objects:
             raise ValueError(f"No usable objects in {split}")
-        return cls(split, frames.sensor_axis, objects, fit_statistics(objects))
+        return cls(split, frames.sensor_axis, objects, fit_statistics(objects), scale)
 
     def counts(self):
         """Whole (not clipped) real objects of every kind."""
@@ -888,10 +813,10 @@ class Library:
             reaches every threshold of `floor` ({measure: smallest value}, see SIFT_MEASURES)."""
             for _ in range(attempts):
                 obj = pool[int(rng.integers(len(pool)))]
-                motion = sample_motion(kind, obj, rng)
+                motion = sample_motion(kind, obj, rng, self.scale)
                 imperfections = sample_imperfections(limits, rng)
                 layer, _ = trim(imperfect(render(obj, motion), imperfections))
-                accepted, reason, features = judge(layer, kind, self.stats, obj.layer, blob_ratio)
+                accepted, reason, features = judge(layer, kind, self.stats, obj.layer, blob_ratio, self.scale)
                 if reason in HARD_REASONS:
                     continue
                 f = features or dict(h=0, w=0, area=0, mean=0.0)

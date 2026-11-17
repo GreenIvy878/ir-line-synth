@@ -156,6 +156,26 @@ reference line and what the model leaves out are in `docs/sensor_model.md`; the 
 (response on held-out distances, noise, the 1070 frames of the dataset made again from
 the recordings pixel for pixel, the belt noise) in `docs/sensor_validation.md`.
 
+Objects can also be described by shape instead of cut from real frames (`shapes.py`,
+`docs/objects.md`): a superquadric (sphere, ellipsoid, box, standing cylinder) lying on
+the belt gives the height of its top under every channel in every poll (with roughness
+and a reflectance map: smooth spread, dark patches, dropouts, glints), and the sensor
+model turns the distance from the line into codes. The installation is the height of the
+line over the belt, the pitch of the channels, the poll rate and the reflectance of the
+belt. The kinds of motion of real objects (calm, slow with stalls, fast, rolling,
+swinging with lost contact) move these objects too (`motion.py`). A whole record
+without real data (`record.py`): objects pass over the bare belt of the profile, the line
+sees the nearest surface, and the codes are cut into frames with boxes from the geometry.
+A recipe with a `parametric` section makes such records by random rules without any
+source dataset (`docs/recipes.md`); `verify` checks them without `--data`. On the page the
+button «Без реальных данных» edits the same section, previews the frames of the first record
+and saves all of them. `ir-line-synth object-report` fits what was not measured (pitch of the
+channels, fall of the reflection with the tilt of the surface, belt speed, reflectance of an egg) to
+the real eggs and writes `docs/object_validation.md`, with the margins that make geometric boxes
+look like those of the annotators. Kinds of objects and motion ranges are tuned in rows and channels
+of the reference line and keep their duration and distance on another line (`sensor_profile` in a
+data.yaml names the profile of the line of a dataset).
+
 ## Sensor line
 
 A line of reflective IR distance sensors is polled at a fixed rate while objects
@@ -254,7 +274,8 @@ src/ir_line_synth/
 ## Limitations
 
 - Labels have a single class.
-- The thresholds of the kinds of objects and of the filter are tuned on a line of
-  40 channels and 40-poll frames, in channels and polls (see `docs/constants.md`);
-  on another line they may need tuning.
+- The thresholds of the kinds of objects and the motion ranges are tuned on the reference
+  line (40 channels, rows of 50 ms, channels 9 mm apart); on another line they keep their
+  duration and distance when its profile is named (`sensor_profile`), but were not checked
+  on the objects of such a line.
 - The page text is mostly in Russian, the command line in English.

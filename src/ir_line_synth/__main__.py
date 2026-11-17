@@ -2,10 +2,11 @@
 
     ir-line-synth serve --data DATASET [--port 8009]      the editor in the browser
     ir-line-synth generate RECIPE [--output DIR] [--dry-run]
-    ir-line-synth verify OUTPUT --data DATASET            saved examples render again exactly
+    ir-line-synth verify OUTPUT [--data DATASET]          saved examples render again exactly
     ir-line-synth constants [--output FILE]               the registry of fixed numbers (Markdown)
     ir-line-synth fit-sensor --calibration PATH ... --output PROFILE   a sensor profile from measurements
     ir-line-synth sensor-report --profile PROFILE --calibration PATH ...   the check of a profile
+    ir-line-synth object-report --profile PROFILE --recordings DIR --dataset DIR ...   objects against the real ones
 """
 
 import argparse
@@ -60,7 +61,7 @@ def generate(args, parser):
 
 
 def check(args, parser):
-    results = verify(args.output, load_data_description(args.data))
+    results = verify(args.output, load_data_description(args.data) if args.data else None)
     failed = [item for item in results if not item.ok]
     for item in failed:
         print(f"MISMATCH {item.kind} {item.path}: {item.problem}")
@@ -123,6 +124,20 @@ def sensor_report(args, parser):
     return 0
 
 
+def object_report(args, parser):
+    from .object_report import report
+    from .sensor_model import load_profile
+    model = load_profile(args.profile)
+    args.channels = model.channels
+    recordings, _, files = recordings_of(args)
+    if not recordings:
+        parser.error("--recordings: no recordings")
+    text = report(model, recordings, files, args.dataset, args.height, args.poll_hz, args.belt_reflectance)
+    Path(args.output).write_text(text, encoding="utf-8", newline="\n")
+    print(f"Written: {args.output}")
+    return 0
+
+
 def build_parser():
     parser = argparse.ArgumentParser(
         prog=PROGRAM, description="Synthetic annotated data for lines of reflective IR distance sensors")
@@ -143,7 +158,7 @@ def build_parser():
 
     command = commands.add_parser("verify", help="Check that saved examples render again exactly")
     command.add_argument("output", metavar="OUTPUT", help="A synthetic output folder or one provenance file")
-    command.add_argument("--data", metavar="DATASET", required=True, help=dataset_help)
+    command.add_argument("--data", metavar="DATASET", help=dataset_help + " (needed for scenes and tapes)")
     command.set_defaults(handler=check)
 
     command = commands.add_parser("constants", help="The registry of the program's fixed numbers (Markdown)")
@@ -176,6 +191,20 @@ def build_parser():
     command.add_argument("--dataset", metavar="DIR", help="A dataset with manifest.csv (name, split, recording, tile)")
     command.add_argument("--output", metavar="FILE", required=True)
     command.set_defaults(handler=sensor_report)
+
+    command = commands.add_parser("object-report",
+                                  help="Fit objects described by shape to the real objects of a dataset (Markdown)")
+    command.add_argument("--profile", required=True, help="A profile file or the name of a shipped profile")
+    command.add_argument("--recordings", metavar="DIR", required=True, help="Recordings of a working line")
+    command.add_argument("--only", metavar="NUMBERS", help="Only the recordings with these numbers, e.g. 2-22")
+    command.add_argument("--dataset", metavar="DIR", required=True,
+                         help="A dataset with manifest.csv (name, split, recording, tile) made of those recordings")
+    command.add_argument("--height", type=float, required=True, help="Height of the line over the belt, mm")
+    command.add_argument("--poll-hz", type=float, required=True, help="Polls of the line per second")
+    command.add_argument("--belt-reflectance", type=float, default=0.3,
+                         help="Reflectance of the belt relative to the white paper of the calibration")
+    command.add_argument("--output", metavar="FILE", required=True)
+    command.set_defaults(handler=object_report)
     return parser
 
 

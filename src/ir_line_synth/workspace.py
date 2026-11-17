@@ -13,11 +13,28 @@ import threading
 import numpy as np
 
 from . import morph
+from .motion import LineScale
 from .background import BackgroundBank, background_options, identifier as background_identifier
 from .dataset import open_split, read_yolo_boxes, scale_boxes, frame_geometry
 from .scene import SourceImage, prepare_entry, render_scene, validate_boxes, validate_pixels
 from .store import SyntheticStore, example_digest
 from .tape import render_tape, time_major_object
+
+
+def line_scale(data):
+    """The rows and channels of the line of a dataset against the reference line (motion.LineScale).
+
+    From the profile named by data.sensor_profile, whose installation gives the poll rate and pitch;
+    without one the dataset is taken to be recorded by the reference line.
+    """
+    if "sensor_profile" not in data:
+        return LineScale()
+    from .sensor_model import load_profile
+    model = load_profile(data["sensor_profile"])
+    if model.installation is None:
+        raise ValueError(f"data.sensor_profile: the profile {model.name} has no installation section "
+                         "(poll rate and pitch of the line)")
+    return LineScale.of(model.frames.pool, model.installation["poll_hz"], model.installation["pitch_mm"])
 
 
 class Workspace:
@@ -33,12 +50,13 @@ class Workspace:
         self.libraries = {}
         self.background_banks = {}
         self.build_lock = threading.Lock()
+        self.scale = line_scale(data)
 
     def library(self, split):
         dataset = self.dataset(split)
         with self.build_lock:
             if split not in self.libraries:
-                self.libraries[split] = morph.Library.build(dataset, split)
+                self.libraries[split] = morph.Library.build(dataset, split, self.scale)
             return self.libraries[split]
 
     def background_bank(self, split):

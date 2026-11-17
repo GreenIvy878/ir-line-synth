@@ -27,7 +27,9 @@ NORMALIZATIONS = ("tile_minmax", "none")
 # Profiles shipped with the program, by name (profiles/<name>.yaml).
 PROFILES = Path(__file__).with_name("profiles")
 PROFILE_KEYS = {"profile", "name", "channels", "boards", "adc_max", "response", "noise", "operation",
-                "correction", "frames", "source"}
+                "correction", "frames", "source", "installation"}
+# The installation of the line over the belt (shapes.Installation) and where its values come from.
+INSTALLATION_KEYS = ("height_mm", "pitch_mm", "poll_hz", "belt_reflectance")
 CHANNEL_KEYS = ("gain", "power", "shift_mm", "offset")
 # Bounds that keep a profile physical and its arithmetic finite.
 MAX_ADC = 2 ** 24 - 1
@@ -155,6 +157,8 @@ class SensorModel:
     operation: OperationNoise | None = None
     correction: np.ndarray | None = None    # [adc_max + 1, channels] corrected code of every raw code
     source: dict = field(default_factory=dict)
+    # height_mm, pitch_mm, poll_hz, belt_reflectance and a note `source` (docs/objects.md, section 4).
+    installation: dict | None = None
 
     def adc(self, signal):
         """Integer codes: rounded and limited to the range of the ADC."""
@@ -266,6 +270,20 @@ def operation_from(spec, channels):
                           number(spec.get("periodic_share", 0.0), "operation periodic_share", 0, 1))
 
 
+def installation_from(spec):
+    """The checked installation section of a profile (None without one)."""
+    if spec is None:
+        return None
+    keys(spec, set(INSTALLATION_KEYS) | {"source"}, "installation")
+    missing = set(INSTALLATION_KEYS) - set(spec)
+    if missing:
+        raise ValueError(f"installation: missing {sorted(missing)}")
+    result = {key: number(spec[key], f"installation {key}", 0, 1e6) for key in INSTALLATION_KEYS}
+    if "source" in spec:
+        result["source"] = str(spec["source"])
+    return result
+
+
 def model_from(spec, folder=".", source_name="profile"):
     """A checked SensorModel from the content of a profile file (relative files from `folder`)."""
     keys(spec, PROFILE_KEYS, source_name)
@@ -301,17 +319,23 @@ def model_from(spec, folder=".", source_name="profile"):
                          integer(frames.get("length"), "frames.length", 1, 100000), frames["normalize"]),
         operation=operation_from(spec.get("operation"), channels),
         correction=correction_from(spec.get("correction", "none"), channels, adc_max, folder),
-        source=source)
+        source=source, installation=installation_from(spec.get("installation")))
 
 
-def load_profile(path_or_name):
-    """A sensor profile from a YAML file, or one shipped with the program by its name."""
+def profile_file(path_or_name):
+    """The file of a sensor profile: a YAML file, or the one shipped with the program by its name."""
     path = Path(path_or_name)
     if not path.suffix and not path.exists():
         path = PROFILES / f"{path_or_name}.yaml"
     if not path.is_file():
         shipped = ", ".join(sorted(item.stem for item in PROFILES.glob("*.yaml")))
         raise ValueError(f"No sensor profile {path_or_name} (shipped profiles: {shipped})")
+    return path
+
+
+def load_profile(path_or_name):
+    """A sensor profile from a YAML file, or one shipped with the program by its name."""
+    path = profile_file(path_or_name)
     try:
         spec = yaml.safe_load(path.read_text(encoding="utf-8"))
     except yaml.YAMLError as error:
@@ -348,6 +372,8 @@ def profile_dict(model):
         raise ValueError("A profile with a correction table is written by hand (it names the table file)")
     if model.source:
         spec["source"] = model.source
+    if model.installation is not None:
+        spec["installation"] = dict(model.installation)
     return spec
 
 

@@ -1,13 +1,17 @@
 """Check that saved examples render again exactly from their own descriptions.
 
 Every saved scene keeps its description and digest in provenance/<name>.json, every tape
-in tapes/<split>/<name>.json. Rendering a description again from the source dataset must
+in tapes/<split>/<name>.json, every synthetic record without real data in
+records/<split>/<name>.json (its frames point at it from provenance/). Rendering a
+description again (from the source dataset, or from the sensor profile for a record) must
 give the recorded digest, and the files on disk must hold that same signal and those boxes.
-A difference means the source frames, the files or the program changed since the save.
+A difference means the source frames, the profile, the files or the program changed since
+the save.
 """
 
 import csv
 from dataclasses import dataclass
+import hashlib
 import io
 import json
 from pathlib import Path
@@ -15,15 +19,17 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
+from .record import LABEL_COLUMNS, record_digest, render_record
 from .scene import LEVELS, pixel_levels
-from .store import OUTPUT_SPLITS, file_digest
+from .sensor_model import load_profile, profile_file
+from .store import OUTPUT_SPLITS, example_digest, file_digest
 from .workspace import Workspace
 
 
 @dataclass(frozen=True)
 class Check:
     path: str
-    kind: str        # scene or tape
+    kind: str        # scene, tape, record or frame (of a record)
     ok: bool
     problem: str = ""
 
@@ -39,6 +45,7 @@ def provenance_files(path):
     for split in OUTPUT_SPLITS:
         files += sorted((path / split / "provenance").glob("*.json"))
         files += sorted((path / "tapes" / split).glob("*.json"))
+        files += sorted((path / "records" / split).glob("*.json"))
     return files
 
 
@@ -79,15 +86,81 @@ def check_tape(workspace, path, metadata):
     return ""
 
 
-def verify(path, data):
-    """Checks of every description under `path` against the dataset described by `data`."""
-    workspace = Workspace(data)
-    results = []
+class Records:
+    """Records rendered again from their descriptions, once each, for the record and its frames."""
+
+    def __init__(self):
+        self.rendered = {}
+
+    def get(self, path):
+        path = Path(path)
+        if path not in self.rendered:
+            metadata = json.loads(path.read_text(encoding="utf-8"))
+            profile = metadata["profile"]
+            file = profile_file(profile["source"])
+            if hashlib.sha256(file.read_bytes()).hexdigest() != profile["sha256"]:
+                raise ValueError(f"the sensor profile {profile['source']} changed since the save")
+            self.rendered[path] = render_record(metadata["record"], load_profile(file))
+        return self.rendered[path]
+
+
+def check_record(records, path, metadata):
+    rendered = records.get(path)
+    if record_digest(rendered) != metadata["digest"]:
+        return "renders differently from its description"
+    files = metadata["files"]
+    codes = np.loadtxt(path.parent / files["codes"], delimiter=",", dtype=np.int64, ndmin=2)
+    if codes.shape != rendered.codes.shape or not np.array_equal(codes, rendered.codes):
+        return f"{files['codes']} differs from the rendered codes"
+    with (path.parent / files["labels"]).open(encoding="utf-8", newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    boxes = np.asarray([[float(row[key]) for key in LABEL_COLUMNS[2:]] for row in rows], np.float64).reshape(-1, 4)
+    if boxes.shape != rendered.boxes.shape or not np.allclose(boxes, rendered.boxes, rtol=1e-9, atol=1e-9):
+        return f"{files['labels']} differs from the rendered boxes"
+    return ""
+
+
+def check_record_frame(records, path, metadata):
+    """A frame of a record: the tile of the record rendered again, against the files of the frame."""
+    root = path.parent.parent
+    reference = metadata["record"]
+    rendered = records.get(root.parent / "records" / root.name / f"{reference['name']}.json")
+    tile = reference["tile"]
+    pixels = rendered.frames[tile].astype(np.float32) / LEVELS
+    boxes = np.asarray([box for _, box, _ in rendered.frame_boxes[tile]], np.float64).reshape(-1, 4)
+    if example_digest(pixels, boxes, tuple(0 for _ in boxes)) != metadata["digest"]:
+        return "renders differently from its record"
+    with Image.open(root / "images" / f"{path.stem}.png") as image:
+        stored = np.asarray(image)
+    if not np.array_equal(stored, rendered.frames[tile]):
+        return f"{path.stem}.png differs from the rendered frame"
+    text = (root / "labels" / f"{path.stem}.txt").read_text(encoding="utf-8")
+    if file_digest(stored.astype(np.float32) / LEVELS, text) != metadata["digest"]:
+        return f"{path.stem}.txt differs from the rendered boxes"
+    return ""
+
+
+def verify(path, data=None):
+    """Checks of every description under `path`; scenes and tapes need the dataset described by `data`."""
+    workspace, records, results = None, Records(), []
     for file in provenance_files(path):
         metadata = json.loads(file.read_text(encoding="utf-8"))
-        kind = "tape" if "tape" in metadata else "scene"
+        if "tape" in metadata:
+            kind = "tape"
+        elif "record" in metadata:
+            kind = "record" if "files" in metadata else "frame"
+        else:
+            kind = "scene"
         try:
-            problem = (check_tape if kind == "tape" else check_scene)(workspace, file, metadata)
+            if kind == "record":
+                problem = check_record(records, file, metadata)
+            elif kind == "frame":
+                problem = check_record_frame(records, file, metadata)
+            elif data is None:
+                problem = "needs the source dataset (--data) to be rendered again"
+            else:
+                workspace = workspace or Workspace(data)
+                problem = (check_tape if kind == "tape" else check_scene)(workspace, file, metadata)
         except (ValueError, OSError, KeyError) as error:
             problem = f"cannot be rendered again: {error}"
         results.append(Check(str(file), kind, not problem, problem))

@@ -1,17 +1,12 @@
-"""Motion replay: object analysis, replay geometry, judging and the demo export."""
+"""Motion replay: object analysis, replay geometry and judging."""
 
-from pathlib import Path
 import json
 import math
-import tempfile
 import unittest
-from unittest.mock import patch
 
 import numpy as np
-from PIL import Image
 
 from ir_line_synth import morph
-from ir_line_synth.dataset import read_yolo_boxes
 
 
 def draw_egg(frame, x0, y0, rows, width=3.5, peak=0.9, track=None, gain=None):
@@ -272,60 +267,6 @@ class ShapeRuleTests(unittest.TestCase):
                     self.assertGreaterEqual(morph.trace_valley(layer), morph.MAX_VALLEY)
         self.assertEqual(self.library.candidates("blob", 8, 3, self.limits),
                          self.library.candidates("blob", 8, 3, self.limits))
-
-
-class DemoTests(unittest.TestCase):
-    def test_demo_writes_pictures_report_and_a_valid_train_dataset(self):
-        from ir_line_synth import morph_demo
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            for split in ("train", "val"):
-                (root / "raw" / split / "images").mkdir(parents=True)
-                (root / "raw" / split / "labels").mkdir()
-                for seed in range(8):
-                    pixels, boxes = kinds_frame(seed)
-                    Image.fromarray(np.round(pixels * 255).astype(np.uint8)).save(
-                        root / "raw" / split / "images" / f"f{seed}.png")
-                    lines = [f"0 {(b[0] + b[2]) / 80:.6f} {(b[1] + b[3]) / 80:.6f} "
-                             f"{(b[2] - b[0]) / 40:.6f} {(b[3] - b[1]) / 40:.6f}"
-                             for b in np.clip(boxes, 0, 40)]
-                    (root / "raw" / split / "labels" / f"f{seed}.txt").write_text("\n".join(lines) + "\n")
-            (root / "raw" / "data.yaml").write_text("data:\n  train: train\n  val: val\n")
-            out = root / "demo"
-            with patch("builtins.print"):
-                morph_demo.main(["--data", str(root / "raw"), "--out", str(out), "--sources", "2",
-                                 "--variants", "3", "--trials", "20", "--scenes", "4"])
-            for kind in morph.KINDS:
-                self.assertTrue((out / f"variants_{kind}.png").is_file())
-            report = json.loads((out / "report.json").read_text(encoding="utf-8"))
-            self.assertEqual(set(report["kinds"]), set(morph.KINDS))
-            images = sorted((out / "scenes" / "train" / "images").glob("*.png"))
-            self.assertEqual(len(images), report["scenes_saved"])
-            self.assertGreater(len(images), 0)
-            self.assertEqual(list((out / "scenes" / "val" / "images").iterdir()), [])
-            for image in images:
-                boxes = read_yolo_boxes(out / "scenes" / "train" / "labels" / f"{image.stem}.txt")
-                provenance = json.loads((out / "scenes" / "train" / "provenance" / f"{image.stem}.json")
-                                        .read_text(encoding="utf-8"))
-                added = [row for row in provenance["sources"] if row["role"] == "object"]
-                self.assertTrue(added)
-                self.assertTrue(all(row["split"] == "train" for row in provenance["sources"]))
-                self.assertEqual(len(boxes), 5 + len(added))
-                with Image.open(image) as picture:
-                    self.assertEqual((picture.size, picture.mode), ((40, 40), "L"))
-
-    def test_demo_refuses_output_inside_the_source(self):
-        from ir_line_synth import morph_demo
-        with tempfile.TemporaryDirectory() as directory:
-            raw = Path(directory) / "raw"
-            for split in ("train", "val"):
-                (raw / split / "images").mkdir(parents=True)
-                (raw / split / "labels").mkdir()
-                Image.fromarray(np.zeros((40, 40), np.uint8)).save(raw / split / "images" / "a.png")
-                (raw / split / "labels" / "a.txt").write_text("")
-            (raw / "data.yaml").write_text("data:\n  train: train\n  val: val\n")
-            with self.assertRaises(ValueError):
-                morph_demo.main(["--data", str(raw), "--out", str(raw / "train" / "demo")])
 
 
 if __name__ == "__main__":

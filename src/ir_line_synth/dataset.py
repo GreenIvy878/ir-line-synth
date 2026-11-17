@@ -23,7 +23,8 @@ from .sensor import MAX_CHANNELS, MAX_FRAME_LENGTH, FrameGeometry
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".tif", ".tiff"}
 GRAYSCALE_MODES = {"L", "I", "I;16", "I;16L", "I;16B", "F"}
 DATA_DESCRIPTION = "data.yaml"
-DATA_OPTIONS = {"type", "train", "val", "test", "sensor_axis", "scale", "offset", "channels", "frame_length"}
+DATA_OPTIONS = {"type", "train", "val", "test", "sensor_axis", "scale", "offset", "channels", "frame_length",
+                "sensor_profile"}
 DATA_DEFAULTS = {"sensor_axis": "x", "scale": 255.0, "offset": 0.0}
 SPLIT_OPTIONS = ("train", "val", "test")
 
@@ -63,6 +64,14 @@ def load_data_description(path: str | Path) -> dict:
         value = data.get(key)
         if value is not None and (isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= limit):
             raise ValueError(f"{path}: data.{key} must be an integer in [1, {limit}]")
+    profile = data.get("sensor_profile")
+    if profile is not None:
+        # The line that recorded the frames: a shipped profile by name, or a profile file next to this file.
+        if not isinstance(profile, str) or not profile.strip():
+            raise ValueError(f"{path}: data.sensor_profile must be a profile name or path")
+        local = path.parent / profile
+        if Path(profile).suffix or local.exists():
+            data["sensor_profile"] = str(local.resolve())
     for key in SPLIT_OPTIONS:
         if key not in data:
             if key != "test":

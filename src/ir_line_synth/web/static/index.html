@@ -12,6 +12,7 @@ try { const saved = localStorage.getItem('ir-line-synth-theme'); if (saved) docu
 <link rel="stylesheet" href="/editor.css">
 <link rel="stylesheet" href="/autogen.css">
 <link rel="stylesheet" href="/tape.css">
+<link rel="stylesheet" href="/records.css">
 </head>
 <body>
 <a class="skip-link" href="#content">Skip to content</a>
@@ -20,20 +21,23 @@ try { const saved = localStorage.getItem('ir-line-synth-theme'); if (saved) docu
   <button id="theme" type="button" class="quiet" aria-label="Switch between light and dark theme">Theme</button>
 </header>
 <div class="toolbar" aria-label="Synthetic data controls">
-  <span class="toolbar-note">Соберите сцену вручную ниже, создайте новые объекты или сгенерируйте партию сцен по правилам.</span>
+  <span class="toolbar-note">Соберите сцену вручную ниже, создайте новые объекты, сгенерируйте партию сцен по правилам или постройте записи без реальных данных.</span>
   <span class="toolbar-spacer"></span>
   <button id="morph-open">Генератор объектов</button>
   <button id="tape-open">Лента (запись)</button>
+  <button id="records-open">Без реальных данных</button>
   <button id="autogen-open" class="primary">Автогенератор</button>
 </div>
 <main id="content" tabindex="-1"><p>Loading…</p></main>
 <dialog id="autogen-dialog" class="autogen-dialog" aria-labelledby="autogen-title"></dialog>
 <dialog id="tape-dialog" class="autogen-dialog" aria-labelledby="tape-title"></dialog>
 <dialog id="morph-dialog" class="autogen-dialog" aria-labelledby="morph-title"></dialog>
+<dialog id="records-dialog" class="autogen-dialog" aria-labelledby="records-title"></dialog>
 <script src="/app.js" defer></script>
 <script src="/editor.js" defer></script>
 <script src="/autogen.js" defer></script>
 <script src="/morphgen.js" defer></script>
 <script src="/tape.js" defer></script>
+<script src="/records.js" defer></script>
 </body>
 </html>

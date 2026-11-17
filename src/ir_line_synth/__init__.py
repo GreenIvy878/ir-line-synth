@@ -5,5 +5,5 @@ real dataset: real objects, new objects replayed from them with another motion, 
 generated backgrounds. Every output records how it was made and renders again from that.
 """
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 PROGRAM = "ir-line-synth"

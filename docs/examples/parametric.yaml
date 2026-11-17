@@ -1,0 +1,44 @@
+recipe: 1                        # версия формата рецепта
+output: ./synthetic_parametric   # куда сохранять (путь от рецепта)
+split: train                     # часть набора, в которую идут кадры
+seed: 17                         # единственное зерно запуска
+
+parametric:                      # без реальных данных: запись целиком из модели датчика
+  profile: reference_line_40     # профиль из поставки или путь к файлу профиля (от рецепта)
+  records: 3                     # число записей; установка (высота, шаг, опрос) — из профиля
+  rules:
+    rows: 400                    # длина записи, строк по pool опросов профиля (10 кадров по 40 строк)
+    speed_mm_s: [100, 130]       # скорость ленты: одна на запись; в эталонных записях около 114 мм/с
+    count: [20, 35]              # объектов в записи
+    max_iou: 0.1                 # наибольшее перекрытие рамок объектов
+    yaw: [-20, 20]               # поворот на ленте, градусы
+    margins: [0.25, 0.25, -0.22, -0.35]  # поля рамок как у разметчиков (docs/object_validation.md)
+    motions: {blob: 6, long: 1, short: 1, rolling: 1, swinging: 1}
+    shapes:                      # формы: размеры (мм), скруглённость, поверхность (docs/object_validation.md)
+      - name: egg
+        weight: 6
+        length: [53, 61]
+        width: [41, 47]
+        height: [41, 47]
+        surface:
+          reflectance: [1.15, 1.47]
+          tilt_power: 3.5
+          spots: [{coverage: [0, 0.05], factor: [0, 0.4], size_mm: 3}]
+      - name: box
+        weight: 1
+        length: [60, 120]
+        width: [40, 80]
+        height: [20, 40]
+        vertical: 0.1
+        horizontal: 0.1
+        surface: {reflectance: [0.5, 1.0], tilt_power: 3.5}
+      - name: fruit
+        weight: 1
+        length: [55, 75]
+        width: [55, 75]
+        height: [35, 48]
+        surface:
+          reflectance: [0.4, 0.9]
+          reflectance_spread: [0, 0.2]
+          spread_size_mm: 10
+          tilt_power: 3.5

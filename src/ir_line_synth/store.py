@@ -228,3 +228,65 @@ class SyntheticStore:
                 sources=[self.details(row) for row in rendered.provenance], tape=spec)
             write_new_files({signal_path: signal, labels_path: labels, provenance_path: provenance_bytes(metadata)})
         return dict(signal=str(signal_path), labels=str(labels_path), provenance=str(provenance_path), digest=digest)
+
+    def save_record(self, directory, split, rendered, spec, profile):
+        """A synthetic record (record.py) and its frames.
+
+        The record goes to `records/<split>/<name>.csv` (codes), `.labels.csv` (boxes) and `.json`
+        (its description, the profile it was made with and the program); every frame of it becomes an
+        example of `split` whose provenance points at the record and the tile. A frame identical to
+        one already saved is skipped. `profile` is {"source", "sha256"} (record.profile_reference).
+        """
+        from .record import codes_csv, labels_csv, record_digest
+        output_split(split)
+        if rendered.frames.dtype != np.uint8:
+            raise ValueError("The frames of this profile are not normalized (frames.normalize: none) and cannot be "
+                             "saved as 8-bit PNG")
+        digest = record_digest(rendered)
+        with _EXPORT_LOCK:
+            root = self.initialize(directory)
+            folder = root / "records" / split
+            folder.mkdir(parents=True, exist_ok=True)
+            for path in folder.glob("*.json"):
+                if json.loads(path.read_text(encoding="utf-8")).get("digest") == digest:
+                    raise ValueError(f"An identical record has already been saved: {path.stem}")
+            existing = self.existing_digests(root, rendered.frames.shape[1:])
+            name = "record_" + uuid.uuid4().hex[:12]
+            files, frames, skipped = {}, [], 0
+            for tile, (pixels, items) in enumerate(zip(rendered.frames, rendered.frame_boxes)):
+                values = pixels.astype(np.float32) / LEVELS
+                boxes = np.asarray([box for _, box, _ in items], np.float64).reshape(-1, 4)
+                labels = tuple(0 for _ in items)
+                tile_digest = example_digest(values, boxes, labels)
+                if tile_digest in existing:
+                    skipped += 1
+                    continue
+                existing.add(tile_digest)
+                frame = f"{name}_{tile:04d}"
+                buffer = io.BytesIO()
+                Image.fromarray(pixels).save(buffer, format="PNG")
+                metadata = dict(program=program(), digest=tile_digest, output_split=split,
+                                record=dict(name=name, tile=tile, digest=digest),
+                                objects=[dict(object=index, name=spec["objects"][index].get("name", ""), cut=cut)
+                                         for index, _, cut in items])
+                files[root / split / "images" / f"{frame}.png"] = buffer.getvalue()
+                files[root / split / "labels" / f"{frame}.txt"] = yolo_text(boxes, labels, values.shape).encode("utf-8")
+                files[root / split / "provenance" / f"{frame}.json"] = provenance_bytes(metadata)
+                frames.append(frame)
+            codes_path, labels_path, record_path = (folder / f"{name}{suffix}"
+                                                    for suffix in (".csv", ".labels.csv", ".json"))
+            metadata = dict(
+                schema=1, program=program(), digest=digest, output_split=split, profile=profile,
+                layout="codes CSV: a row per poll, a column per channel; labels CSV: boxes [min, max) in "
+                       "channels and rows of `pool` polls; frames: tiles of `frame_length` rows",
+                polls=int(rendered.codes.shape[0]), channels=int(rendered.codes.shape[1]),
+                pool=int(rendered.codes.shape[0] // spec["rows"]),
+                frame_length=int(rendered.frames.shape[1]),
+                files=dict(codes=codes_path.name, labels=labels_path.name), frames=frames, skipped_frames=skipped,
+                record=spec)
+            files[codes_path] = codes_csv(rendered.codes).encode("utf-8")
+            files[labels_path] = labels_csv(rendered, spec).encode("utf-8")
+            files[record_path] = provenance_bytes(metadata)
+            write_new_files(files)
+        return dict(record=str(record_path), codes=str(codes_path), frames=len(frames), skipped_frames=skipped,
+                    digest=digest)

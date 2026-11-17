@@ -2,12 +2,86 @@
 
 import numpy as np
 
+import yaml
+
 from .. import morph
+from ..dataset import SPLIT_OPTIONS
 from ..generator import generate_candidates
+from ..recipe import make_record, parametric_section
 from ..scene import integer, make_variation, variation_options
-from ..store import check_split, output_split
+from ..sensor_model import PROFILES
+from ..store import SyntheticStore, check_split, output_split
 from ..tape import generate_tape
 from ..workspace import Workspace
+
+
+# The parametric section the page starts with: the one of docs/examples/parametric.yaml (a test
+# keeps them equal), so the page and the documented recipe make the same records.
+DEFAULT_PARAMETRIC = """profile: reference_line_40     # профиль из поставки или путь к файлу профиля (от рецепта)
+records: 3                     # число записей; установка (высота, шаг, опрос) — из профиля
+rules:
+  rows: 400                    # длина записи, строк по pool опросов профиля (10 кадров по 40 строк)
+  speed_mm_s: [100, 130]       # скорость ленты: одна на запись; в эталонных записях около 114 мм/с
+  count: [20, 35]              # объектов в записи
+  max_iou: 0.1                 # наибольшее перекрытие рамок объектов
+  yaw: [-20, 20]               # поворот на ленте, градусы
+  margins: [0.25, 0.25, -0.22, -0.35]  # поля рамок как у разметчиков (docs/object_validation.md)
+  motions: {blob: 6, long: 1, short: 1, rolling: 1, swinging: 1}
+  shapes:                      # формы: размеры (мм), скруглённость, поверхность (docs/object_validation.md)
+    - name: egg
+      weight: 6
+      length: [53, 61]
+      width: [41, 47]
+      height: [41, 47]
+      surface:
+        reflectance: [1.15, 1.47]
+        tilt_power: 3.5
+        spots: [{coverage: [0, 0.05], factor: [0, 0.4], size_mm: 3}]
+    - name: box
+      weight: 1
+      length: [60, 120]
+      width: [40, 80]
+      height: [20, 40]
+      vertical: 0.1
+      horizontal: 0.1
+      surface: {reflectance: [0.5, 1.0], tilt_power: 3.5}
+    - name: fruit
+      weight: 1
+      length: [55, 75]
+      width: [55, 75]
+      height: [35, 48]
+      surface:
+        reflectance: [0.4, 0.9]
+        reflectance_spread: [0, 0.2]
+        spread_size_mm: 10
+        tilt_power: 3.5
+"""
+
+
+def parametric_request(body):
+    """The checked parametric section (sent as YAML text) and the seed of a page request."""
+    text = body.get("text")
+    if not isinstance(text, str) or not text.strip():
+        raise ValueError("Describe the records: the parametric section of a recipe, in YAML")
+    try:
+        spec = yaml.safe_load(text)
+    except yaml.YAMLError as error:
+        raise ValueError(f"YAML: {error}") from error
+    # Relative profile paths are taken from the folder the editor was started in.
+    return parametric_section(spec, "."), integer(body.get("seed", 17), "seed", 0, 2**32 - 1)
+
+
+def record_preview(rendered):
+    """Frames of a record and their boxes for the page; frames without normalization are stretched for display."""
+    frames = rendered.frames
+    normalized = frames.dtype == np.uint8
+    if not normalized:
+        low = frames.min(axis=(1, 2), keepdims=True)
+        span = np.maximum(frames.max(axis=(1, 2), keepdims=True) - low, 1e-9)
+        frames = np.floor((frames - low) / span * 255)
+    return dict(frames=frames.astype(int).tolist(), normalized=bool(normalized),
+                boxes=[[dict(object=index, box=box.tolist(), cut=cut) for index, box, cut in tile]
+                       for tile in rendered.frame_boxes])
 
 
 def prepared_payload(prepared):
@@ -36,6 +110,8 @@ class EditorViews:
             clipped = [self.workspace.is_clipped(source, index) for index in range(len(source.boxes))]
             return dict(matrix=source.pixels.tolist(), boxes_pixels_xyxy=source.boxes.tolist(),
                         labels=list(source.labels), split=source.split, id=source.identifier, clipped=clipped)
+        if path == "/api/synthetic/parametric-default":
+            return dict(text=DEFAULT_PARAMETRIC, profiles=sorted(item.stem for item in PROFILES.glob("*.yaml")))
         raise ValueError("Unknown synthetic editor endpoint")
 
     def post(self, path, body):
@@ -49,6 +125,10 @@ class EditorViews:
             return self.generate_objects(body)
         if path == "/api/synthetic/generated-save":
             return self.save_generated(body)
+        if path == "/api/synthetic/parametric-preview":
+            return self.preview_records(body)
+        if path == "/api/synthetic/parametric-save":
+            return self.save_records(body)
         if path == "/api/synthetic/prepare":
             return prepared_payload(self.workspace.prepare(body, self.workspace.source_loader()))
         if path not in ("/api/synthetic/preview", "/api/synthetic/save", "/api/synthetic/variations"):
@@ -142,6 +222,40 @@ class EditorViews:
                              "from these sources; try other sources or another kind")
         return dict(candidates=batch["candidates"], requested=count, library=library.counts(), split=split,
                     notes=batch["notes"], size_filter=batch["size_filter"])
+
+    def preview_records(self, body):
+        """The first record of a parametric section with the seed of the page, and the same run as a recipe."""
+        section, seed = parametric_request(body)
+        description, notes, rendered = make_record(section, seed, 0)
+        split = output_split(body.get("split", "train"))
+        recipe = yaml.safe_dump(dict(recipe=1, output="./synthetic_parametric", split=split, seed=seed),
+                                sort_keys=False)
+        recipe += "parametric:\n" + "".join(f"  {line}\n" for line in body["text"].rstrip("\n").split("\n"))
+        return dict(records=section["records"], objects=len(description["objects"]),
+                    speed_mm_s=description["speed_mm_s"], notes=notes, recipe=recipe,
+                    names=[item.get("name", "") for item in description["objects"]], **record_preview(rendered))
+
+    def records_store(self):
+        """A store for records: time-major frames (channels on x), never inside the source dataset."""
+        data = self.workspace.data
+        return SyntheticStore(dict(sensor_axis="x", **{key: data[key] for key in SPLIT_OPTIONS if key in data}))
+
+    def save_records(self, body):
+        """Every record of a parametric section with the seed of the page, saved with its frames."""
+        section, seed = parametric_request(body)
+        directory, split = body.get("directory"), output_split(body.get("split"))
+        store = self.records_store()
+        store.output_root(directory)
+        profile = dict(source=section["source"], sha256=section["sha256"])
+        saved, skipped = [], []
+        for index in range(section["records"]):
+            description, notes, rendered = make_record(section, seed, index)
+            try:
+                saved.append(dict(index=index, notes=notes,
+                                  **store.save_record(directory, split, rendered, description, profile)))
+            except ValueError as error:
+                skipped.append(dict(index=index, reason=str(error)))
+        return dict(requested=section["records"], saved=saved, skipped=skipped)
 
     def save_generated(self, body):
         items = body.get("items")

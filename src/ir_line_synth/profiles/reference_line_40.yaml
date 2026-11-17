@@ -80,3 +80,10 @@ source:
       DATA_21.csv, DATA_22.csv]
     sha256: 11ab1b9e187f1d49883784ffe358ecca63d3f718a27d22181b757b70bf2579ef
     polls: 185555
+# The installation of the reference line over the belt (docs/objects.md, section 4; docs/object_validation.md).
+installation:
+  height_mm: 55            # owner: 55-70 mm; the level of the real eggs agrees with 55 (reflectance of an egg 1.28)
+  pitch_mm: 9.0            # fitted by object-report to the profile of the real eggs across the channels
+  poll_hz: 200             # owner: the poll rate is set in the firmware, usually 200 Hz
+  belt_reflectance: 0.3    # not measured; changes the peak of an egg by 5-10 %
+  source: owner 2026-11-17 (height, poll rate); ir-line-synth object-report on DATA_2-22 and main_flow (pitch)

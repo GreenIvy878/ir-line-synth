@@ -168,6 +168,11 @@ def reshape_intensities(crop, mask, options):
     changes. These steps (all seeded, so a scene renders identically every time) do:
     gamma and contrast bend the ratios, a gradient imitates uneven lighting, noise
     perturbs each pixel on its own and shade darkens one soft patch like dust or dirt.
+
+    Stages of the signal (docs/synthetic_data_method.md, section 8.1): gamma - sensor
+    (power of the response law); contrast - frame (tile normalization); gradient, noise and
+    shade - surface (tilt, reflectance spread, dark spot). The order is kept as it is so that
+    saved scenes render again exactly.
     """
     crop = crop.astype(np.float32)
     if options["gamma"] != 1:

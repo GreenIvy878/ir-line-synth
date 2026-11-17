@@ -110,7 +110,7 @@ function renderTape() {
       <div class="synthetic-fields"><label>Добавить из набора <select id="tape-add-select"></select></label>
         <button id="tape-place">Разместить кликом</button><span id="tape-add-info" class="muted"></span></div>
       <div class="synthetic-toolbar"><button id="tape-undo">Undo</button><button id="tape-redo">Redo</button><button id="tape-delete">Удалить выбранный</button></div>
-      <div class="synthetic-fields">${synNumber('tape-x','X (канал)',0,0,39,1)}${synNumber('tape-y','Y (строка)',0,0,20000,1)}<button id="tape-position-apply">Применить координаты</button></div>
+      <div class="synthetic-fields">${synNumber('tape-x','X (канал)',0,0,synSensor().channels-1,1)}${synNumber('tape-y','Y (строка)',0,0,20000,1)}<button id="tape-position-apply">Применить координаты</button></div>
       <div class="synthetic-fields">${synNumber('tape-bg-seed','Seed фона',0,0,4294967295,1)}<button id="tape-bg-new">Новый фон (seed + 1)</button>
         ${synNumber('tape-edit-iou','Макс. IoU ленты',0.15,0,1,0.01)}</div>
       <p>Клик по объекту выделяет его, перетаскивание перемещает; колесо мыши и миникарта листают ленту. Объекты не могут пересекаться сильнее макс. IoU и выходить за ленту.</p>

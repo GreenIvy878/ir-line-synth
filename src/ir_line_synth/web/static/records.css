@@ -1,0 +1,8 @@
+.records-layout{grid-template-columns:minmax(320px,460px) minmax(0,1fr)}
+.autogen-rules .records-field{flex-direction:column;align-items:stretch;gap:6px}
+.records-field input[type=text]{width:100%;box-sizing:border-box}
+.records-field textarea,.records-recipe textarea{width:100%;box-sizing:border-box;font:12px/1.45 ui-monospace,Consolas,monospace;color:var(--ink);background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--radius-small);padding:8px;resize:vertical;white-space:pre;overflow:auto}
+.records-status{margin:0;font-size:13px;overflow-wrap:anywhere}
+.records-gallery{grid-template-columns:repeat(auto-fill,minmax(min(100%,180px),1fr))}
+.records-recipe{margin-top:14px}.records-recipe summary{cursor:pointer;margin-bottom:8px}
+@media(max-width:900px){.records-layout{grid-template-columns:1fr}}

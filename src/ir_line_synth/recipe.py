@@ -22,6 +22,22 @@ sends, so a run of the page can be written down as a recipe.
       count: 2
       rules: {length: 2000, objects: 100, layout: clusters}
 
+A recipe without real data has a `parametric` section instead of data, objects, scenes and
+tapes: the sensor profile, the installation, the number of records and the rules of random
+records (record.py, docs/objects.md, section 8):
+
+    recipe: 1
+    output: ./out
+    split: train
+    seed: 17
+    parametric:
+      profile: reference_line_40     # a shipped profile or a path (relative to this file)
+      installation: {height_mm: 55, pitch_mm: 10, poll_hz: 200, belt_reflectance: 0.3}
+      records: 5
+      rules: {rows: 400, speed_mm_s: [140, 180], count: [8, 15], shapes: [...]}
+
+Every record is saved with its codes and its frames (store.save_record).
+
 Without the review of the page, every scene the rules allow is saved: the rules, the
 filter of new objects (accept: filter) and the duplicate check are the selection. The
 seeds of the steps are derived from the one seed of the recipe (step_seed), so the same
@@ -42,19 +58,26 @@ import yaml
 from . import morph
 from .dataset import load_data_description
 from .generator import generate_candidates
+from .record import generate_record, installation_from, profile_reference, record_rules, render_record
 from .scene import integer
-from .store import OUTPUT_SPLITS, program
+from .store import OUTPUT_SPLITS, SyntheticStore, program
 from .tape import generate_tape
 from .workspace import Workspace
 
 
 SCHEMA = 1
 RECIPE_KEYS = {"recipe", "data", "output", "split", "seed", "objects", "scenes", "tapes", "background"}
+# A recipe without real data: these keys only.
+PARAMETRIC_RECIPE_KEYS = {"recipe", "output", "split", "seed", "parametric"}
+PARAMETRIC_KEYS = {"profile", "installation", "records", "rules"}
+# Without an installation the parametric section takes the one of the profile.
+PARAMETRIC_REQUIRED = PARAMETRIC_KEYS - {"installation"}
+MAX_RECORDS = 1000
 # Rules a recipe sets once at its top level, so a step may not set them again.
 TOP_LEVEL_RULES = {"seed", "split", "background_split", "images"}
 ACCEPT = ("filter", "all")
 # Steps of a run, each with its own random stream (step_seed).
-STEPS = ("real", "generated", "scenes", "tapes")
+STEPS = ("real", "generated", "scenes", "tapes", "records")
 
 
 def step_seed(seed, step, index=0):
@@ -91,9 +114,18 @@ def load_recipe(path):
         recipe = yaml.safe_load(text)
     except yaml.YAMLError as error:
         raise ValueError(f"{path}: {error}") from error
-    keys(recipe, RECIPE_KEYS, "recipe")
+    keys(recipe, PARAMETRIC_RECIPE_KEYS if isinstance(recipe, dict) and "parametric" in recipe else RECIPE_KEYS,
+         "recipe")
     if recipe.get("recipe") != SCHEMA:
         raise ValueError(f"{path}: expected recipe: {SCHEMA}")
+    if "parametric" in recipe:
+        if not isinstance(recipe.get("output"), str) or not recipe["output"].strip():
+            raise ValueError("recipe.output must be a path")
+        if recipe.get("split") not in OUTPUT_SPLITS:
+            raise ValueError("recipe.split must be train, val or test")
+        integer(recipe.get("seed"), "recipe.seed", 0, 2**32 - 1)
+        parametric_section(recipe["parametric"], path.parent)
+        return recipe, path.parent, hashlib.sha256(text).hexdigest()
     for key in ("data", "output"):
         if not isinstance(recipe.get(key), str) or not recipe[key].strip():
             raise ValueError(f"recipe.{key} must be a path")
@@ -141,6 +173,73 @@ def load_recipe(path):
     return recipe, path.parent, hashlib.sha256(text).hexdigest()
 
 
+def parametric_section(spec, folder):
+    """The checked parametric section: profile (source, model, sha256), installation, records, rules."""
+    keys(spec, PARAMETRIC_KEYS, "recipe.parametric")
+    missing = PARAMETRIC_REQUIRED - set(spec)
+    if missing:
+        raise ValueError(f"recipe.parametric: missing {sorted(missing)}")
+    source, model, sha256 = profile_reference(spec["profile"], folder)
+    if "installation" in spec:
+        installation = installation_from(spec["installation"])
+    elif model.installation is not None:
+        installation = installation_from({key: value for key, value in model.installation.items() if key != "source"})
+    else:
+        raise ValueError(f"recipe.parametric.installation: the profile {model.name} has no installation section")
+    return dict(source=source, model=model, sha256=sha256, installation=installation,
+                records=integer(spec["records"], "parametric.records", 1, MAX_RECORDS),
+                rules=record_rules(spec["rules"], model, installation))
+
+
+def write_run(record, output, path, digest):
+    """The record of a run and its recipe in `runs/` of the output."""
+    runs = output / "runs"
+    runs.mkdir(parents=True, exist_ok=True)
+    stamp = record["started"].replace(":", "").replace("-", "").replace("+0000", "Z")
+    name = f"run_{stamp}_{digest[:8]}"
+    (runs / f"{name}.json").write_text(json.dumps(record, indent=2, ensure_ascii=False, allow_nan=False),
+                                       encoding="utf-8")
+    (runs / f"{name}.recipe.yaml").write_bytes(Path(path).read_bytes())
+    record["record"] = str(runs / f"{name}.json")
+
+
+def make_record(section, seed, index):
+    """Record `index` of a parametric section (parametric_section) with the seed of a run:
+    (description, notes, rendered). The page and recipes make the same records from the same seed."""
+    rng = np.random.default_rng(step_seed(seed, "records", index))
+    spec, notes = generate_record(section["rules"], section["model"], section["installation"], rng)
+    return spec, notes, render_record(spec, section["model"])
+
+
+def run_parametric(path, recipe, folder, digest, output, dry_run, report):
+    """Random records of a recipe without real data, each saved with its frames."""
+    section = parametric_section(recipe["parametric"], folder)
+    store = SyntheticStore(dict(sensor_axis="x"))
+    if dry_run:
+        store.output_root(str(output))
+    split, seed = recipe["split"], recipe["seed"]
+    profile = dict(source=section["source"], sha256=section["sha256"])
+    record = dict(program=program(), recipe=recipe, recipe_sha256=digest, recipe_file=str(Path(path).resolve()),
+                  profile=profile, output=str(output), split=split, notes=[], records=[],
+                  started=datetime.now(timezone.utc).isoformat(timespec="seconds"))
+    for index in range(section["records"]):
+        spec, notes, rendered = make_record(section, seed, index)
+        row = dict(objects=len(spec["objects"]), frames=len(rendered.frames), notes=notes)
+        if not dry_run:
+            try:
+                row["saved"] = store.save_record(str(output), split, rendered, spec, profile)
+            except ValueError as error:
+                row["skipped"] = str(error)
+        record["records"].append(row)
+        record["notes"] += [f"record {index + 1}: {note}" for note in notes]
+        report(f"Record {index + 1}: {len(spec['objects'])} objects, {len(rendered.frames)} frames"
+               + (f" (not saved: {row['skipped']})" if "skipped" in row else ""))
+    record["finished"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    if not dry_run:
+        write_run(record, output, path, digest)
+    return record
+
+
 def object_pool(workspace, recipe, notes):
     """The pool of a run as entries of the page's object bank."""
     split, seed, objects = recipe["split"], recipe["seed"], recipe["objects"]
@@ -178,8 +277,10 @@ def run(path, output=None, dry_run=False, report=print):
     and checked but nothing is written.
     """
     recipe, folder, digest = load_recipe(path)
-    data_path = (folder / recipe["data"]).resolve()
     output = Path(output).resolve() if output else (folder / recipe["output"]).resolve()
+    if "parametric" in recipe:
+        return run_parametric(path, recipe, folder, digest, output, dry_run, report)
+    data_path = (folder / recipe["data"]).resolve()
     workspace = Workspace(load_data_description(data_path))
     if dry_run:
         workspace.store.output_root(str(output))
@@ -243,12 +344,5 @@ def run(path, output=None, dry_run=False, report=print):
 
     record["finished"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
     if not dry_run:
-        runs = output / "runs"
-        runs.mkdir(parents=True, exist_ok=True)
-        stamp = record["started"].replace(":", "").replace("-", "").replace("+0000", "Z")
-        name = f"run_{stamp}_{digest[:8]}"
-        (runs / f"{name}.json").write_text(json.dumps(record, indent=2, ensure_ascii=False, allow_nan=False),
-                                           encoding="utf-8")
-        (runs / f"{name}.recipe.yaml").write_bytes(Path(path).read_bytes())
-        record["record"] = str(runs / f"{name}.json")
+        write_run(record, output, path, digest)
     return record

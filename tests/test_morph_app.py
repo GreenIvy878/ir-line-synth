@@ -50,6 +50,21 @@ class ImperfectionTests(unittest.TestCase):
     def test_neutral_options_change_nothing(self):
         np.testing.assert_array_equal(morph.imperfect(self.layer, {}), self.layer)
 
+    def test_every_distortion_is_described_by_stage(self):
+        from ir_line_synth.scene import NEUTRAL_APPEARANCE
+        text = (Path(__file__).parents[1] / "docs" / "synthetic_data_method.md").read_text(encoding="utf-8")
+        section = text[text.index("### 8.1."):text.index("## 9.")]
+        rows = {}
+        for line in section.splitlines():
+            cells = [cell.strip() for cell in line.split("|")[1:-1]]
+            if len(cells) == 5 and cells[1] in ("transform", "imperfections"):
+                for key in cells[0].replace("`", "").split(", "):
+                    rows[(cells[1], key)] = cells[2]
+        expected = {("transform", key) for key in NEUTRAL_APPEARANCE}
+        expected |= {("imperfections", key) for key in morph.NEUTRAL_IMPERFECTIONS}
+        self.assertEqual(set(rows), expected)
+        self.assertTrue(set(rows.values()) <= {"поверхность", "датчик", "кадр", "контур"})
+
     def test_seeded_and_each_effect_has_its_own_stream(self):
         options = dict(noise=0.5, stripes=0.5, dropout=0.5, seed=3)
         np.testing.assert_array_equal(morph.imperfect(self.layer, options), morph.imperfect(self.layer, options))
